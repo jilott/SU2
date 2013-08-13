@@ -338,12 +338,31 @@ public:
 	 * \brief Set the value of the electrical conductivity
 	 */
 	virtual void SetElec_Cond();
-
+   
+    /*!
+	 * \brief Computes the Joule Heating term on every point on a radial mesh. 
+	 */
+    virtual double ComputeJouleHeat();
+    
+    /*!
+	 * \brief Calculates the electrical conductivity of the gas
+	 * \param[in] val_pressure - Value of the pressure in Pa. 
+	 * \param[in] val_temperature - Value of the temperature in K. 
+	 * \param[out] sigma -  value of the electrical conductivity in mho-s
+	 *
+	 */
+    virtual double ComputeElec_Cond(double val_pressure, double val_temperature);
+    
 	/*!
 	 * \brief Get the integral in electrical conductivity calculation
 	 * \param[out] value of the integral
 	 */
 	virtual double GetElec_CondIntegral();
+       
+	/*!
+	 * \brief Set the value of the Joule Heating 
+	 */   
+    virtual void SetJouleHeat(double val_JouleHeat);
 
 	/*!
 	 * \brief Set the square integral in electrical conductivity calculation
@@ -596,7 +615,7 @@ public:
 	 * \param[in] val_dist_j - Value of of the distance from point j to the nearest wall.
 	 */
 	void SetDistance(double val_dist_i, double val_dist_j);
-
+    
 	/*! 
 	 * \brief Set coordinates of the points.
 	 * \param[in] val_coord_i - Coordinates of the point i.
@@ -5479,11 +5498,13 @@ public:
  */
 class CSource_JouleHeating : public CNumerics {
 private:
-	double Elec_Conduct;
+	double Elec_Conduct, current,JouleHeat;
 	double Density, Energy, Temperature, sq_vel,SoundSpeed, Pressure, Patm, *Velocity;
 	unsigned short iDim, jDim;
 	bool implicit;
 	double Integralsqr;
+    unsigned short nPt_r, nPt_theta;
+    double rmax, dr, dtheta;
 
 public:
 
@@ -5503,16 +5524,35 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	void ComputeResidual(double *val_residual, double **val_Jacobian_i,CConfig *config);
+    
+    /*!
+	 * \brief Computes the Joule Heating term on every point on the radial grid
+     */
+    double ComputeJouleHeat();
 
 	/*!
 	 * \brief Set the value of the electrical conductivity
 	 */
 	void SetElec_Cond();
-
+    
+    /*!
+	 * \brief Calculates the electrical conductivity of the gas
+	 * \param[in] val_pressure - Value of the pressure in Pa. 
+	 * \param[in] val_temperature - Value of the temperature in K. 
+	 * \param[out] sigma -  value of the electrical conductivity in mho-s
+	 *
+	 */
+    double ComputeElec_Cond(double val_pressure, double val_temperature);
+    
 	/*!
 	 * \brief Set the integral in electrical conductivity calculation
 	 */
 	double GetElec_CondIntegral();
+    
+	/*!
+	 * \brief Set the value of the Joule Heating 
+	 */   
+    void SetJouleHeat(double val_JouleHeat);
 
 	/*!
 	 * \brief Set the square integral in electrical conductivity calculation

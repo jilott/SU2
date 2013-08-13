@@ -196,6 +196,8 @@ inline double CNumerics::GetMagneticForce(unsigned short val_Species, unsigned s
 
 inline void CNumerics::SetElec_Cond() {}
 
+inline double CNumerics::ComputeElec_Cond(double val_pressure, double val_temperature) {};
+
 inline void CNumerics::SetLaminarViscosity(double val_lam_viscosity_i, double val_lam_viscosity_j) {
 	Laminar_Viscosity_i = val_lam_viscosity_i;
 	Laminar_Viscosity_j = val_lam_viscosity_j;
@@ -533,11 +535,19 @@ inline double* CSource_Magnet::GetMagneticField() { return Current_Density; }
 
 inline double CNumerics::GetElec_CondIntegral() {return 0;}
 
-inline double CSource_JouleHeating::GetElec_CondIntegral() {return Elec_Conduct*Coord_i[1]*(Coord_i[1]-Coord_j[1]);}
+inline double CSource_JouleHeating::GetElec_CondIntegral() {return Elec_Conduct*dist_i*dr*dtheta;}
+
+inline void CNumerics::SetJouleHeat(double val_JouleHeat) {};
+
+inline void CSource_JouleHeating::SetJouleHeat(double val_JouleHeat) {JouleHeat = val_JouleHeat;}
 
 inline void CNumerics::SetElec_CondIntegralsqr(double val_var) {}
 
 inline void CSource_JouleHeating::SetElec_CondIntegralsqr(double val_var) {Integralsqr = val_var; }
+
+inline double CNumerics::ComputeJouleHeat() {return 0;}
+
+inline double CSource_JouleHeating::ComputeJouleHeat() {return current*current*Elec_Conduct/Integralsqr;}
 
 inline double CNumerics::GetKappaPsiVolume() {return 0;}
 

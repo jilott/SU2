@@ -862,6 +862,12 @@ inline bool CConfig::GetMagnetic_Force(void) { return MagneticForce; }
 
 inline bool CConfig::GetJouleHeating(void) { return JouleHeating; }
 
+inline double CConfig::GetMin_Plane(void) {return PlaneSection[1];}
+
+inline double CConfig::GetMax_Plane(void) {return PlaneSection[2];}
+
+inline unsigned short CConfig::GetNoOfPlanes(void) {return PlaneSection[0];}
+
 inline bool CConfig::GetSmoothNumGrid(void) { return SmoothNumGrid; }
 
 inline void CConfig::SetSmoothNumGrid(bool val_smoothnumgrid) { SmoothNumGrid = val_smoothnumgrid; }

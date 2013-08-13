@@ -5596,46 +5596,47 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
     Index_Plane_jPoint.clear(); 
     
     /*--- Find edges that are "near" this particular plane ---*/
-    bool *inPlane = new bool[nEdge];
-    for (iEdge = 0; iEdge < nEdge; iEdge++) {
-        inPlane[iEdge] = false;
-        iPoint = edge[iEdge]->GetNode(0);
+//    bool *inPlane = new bool[nEdge];
+//    for (iEdge = 0; iEdge < nEdge; iEdge++) {
+//        inPlane[iEdge] = false;
+//        iPoint = edge[iEdge]->GetNode(0);
+//       if ((fabs(node[iPoint]->GetCoord(axis_Dim)) > fabs(Plane_P0[axis_Dim])*0.75) && (fabs(node[iPoint]->GetCoord(axis_Dim)) < fabs(Plane_P0[axis_Dim])*1.25))
+//            inPlane[iEdge] = true;
+//    }
         
-        if ((node[iPoint]->GetCoord(axis_Dim) > Plane_P0[axis_Dim]*0.75) && (node[iPoint]->GetCoord(axis_Dim) < Plane_P0[axis_Dim]*1.25))
-            inPlane[iEdge] = true;
+    /*--- Loop over all the edges, and calculate ... for all those edges only that are near this particular plane ---*/
+    for (iEdge = 0; iEdge < nEdge; iEdge++) {
+        //        if (inPlane[iEdge]) {
+        
+        /*--- iPoint and jPoint now point to the two end points of iEdge ---*/
+        iPoint = edge[iEdge]->GetNode(0);
+        jPoint = edge[iEdge]->GetNode(1);
+        
+        /*--- Segment_P0 and Segment_P1 store the coordinates of iPoint and jPoint respectively ---*/
+        for (iDim = 0; iDim < nDim; iDim++) {
+            Segment_P0[iDim] = node[iPoint]->GetCoord(iDim);
+            Segment_P1[iDim] = node[jPoint]->GetCoord(iDim);
+        }
+        
+        /*--- In 3D compute the intersection ---*/
+        /*--- This method will return the point of intersection (Intersection) between the plane in question, and iEdge ---*/
+        intersect = ComputeSegmentPlane_Intersection(Segment_P0, Segment_P1, Plane_P0, Plane_Normal, Intersection);
+        
+        if (intersect == 1) {        
+            /*--- Xcoord stores the x coordinate of the points of intersection of an edge with this plane and so on ... ---*/
+            Xcoord.push_back(Intersection[0]);
+            Ycoord.push_back(Intersection[1]);
+            Zcoord.push_back(Intersection[2]);
+            
+            /*--- Indicies of the nodes connecting the edge that intersects this plane and so on ... ---*/
+            Index_iPoint.push_back(iPoint);
+            Index_jPoint.push_back(jPoint);
+            
+        }
+        //}
     }
     
-    /*--- Loop over all the edges, and calculate ... for all those edges only that are near this particular plane ---*/
-    for (iEdge = 0; iEdge < nEdge; iEdge++)
-        if (inPlane[iEdge]) {
-            
-            /*--- iPoint and jPoint now point to the two end points of iEdge ---*/
-            iPoint = edge[iEdge]->GetNode(0);
-            jPoint = edge[iEdge]->GetNode(1);
-            
-            /*--- Segment_P0 and Segment_P1 store the coordinates of iPoint and jPoint respectively ---*/
-            for (iDim = 0; iDim < nDim; iDim++) {
-                Segment_P0[iDim] = node[iPoint]->GetCoord(iDim);
-                Segment_P1[iDim] = node[jPoint]->GetCoord(iDim);
-            }
-            
-            /*--- In 3D compute the intersection ---*/
-            /*--- This method will return the point of intersection (Intersection) between the plane in question, and iEdge ---*/
-            intersect = ComputeSegmentPlane_Intersection(Segment_P0, Segment_P1, Plane_P0, Plane_Normal, Intersection);
-            if (intersect == 1) {        
-                /*--- Xcoord stores the x coordinate of the points of intersection of an edge with this plane and so on ... ---*/
-                Xcoord.push_back(Intersection[0]);
-                Ycoord.push_back(Intersection[1]);
-                Zcoord.push_back(Intersection[2]);
-                
-                /*--- Indicies of the nodes connecting the edge that intersects this plane and so on ... ---*/
-                Index_iPoint.push_back(iPoint);
-                Index_jPoint.push_back(jPoint);
-                
-            }
-        }
-    
-    delete [] inPlane;
+   // delete [] inPlane;
     
 #ifndef NO_MPI
     
@@ -5648,7 +5649,6 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
     
     /*--- nLocalVertex = total number of intersecting points on this plane ---*/
     nLocalVertex = Xcoord.size();
-    
     Buffer_Send_nVertex[0] = nLocalVertex;
     
     MPI::COMM_WORLD.Allreduce(&nLocalVertex, &nGlobalVertex, 1, MPI::UNSIGNED_LONG, MPI::SUM);
@@ -5687,7 +5687,7 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
     /*---brief: Do this for the indicies  ---*/
     for (iVertex = 0; iVertex < nLocalVertex; iVertex++) {
         Buffer_Send_Vertices[iVertex*2 + 0] = Index_iPoint[iVertex];
-        Buffer_Send_Coord[iVertex*2 + 1] = Index_jPoint[iVertex];
+        Buffer_Send_Vertices[iVertex*2 + 1] = Index_jPoint[iVertex];
     }
     
     MPI::COMM_WORLD.Allgather(Buffer_Send_Vertices, nBuffer, MPI::UNSIGNED_LONG, Buffer_Receive_Vertices, nBuffer, MPI::UNSIGNED_LONG);
@@ -5700,9 +5700,6 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
             }
         }
     }
-    
-    
-    
     
     delete[] Buffer_Send_Coord;      delete[] Buffer_Receive_Coord;
     delete[] Buffer_Send_Vertices;   delete[] Buffer_Receive_Vertices;
@@ -5719,7 +5716,7 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
                 Segment[1] = Ycoord_Plane[jVertex] - Ycoord_Plane[iVertex];
                 Segment[2] = Zcoord_Plane[jVertex] - Zcoord_Plane[iVertex];
                 Dist_Value = sqrt(pow(Segment[0], 2.0) + pow(Segment[1], 2.0) + pow(Segment[2], 2.0));
-                if (Dist_Value < 1E-6) {
+                if (Dist_Value < 1E-8) {
                     Duplicate.push_back (jVertex);
                 }
             }
@@ -5740,26 +5737,24 @@ void CPhysicalGeometry::ComputeGrid_Planes(double *Plane_P0, double *Plane_Norma
             
         }
         
-        
-        /*--- Write the output file (tecplot format) ---*/
-        if (original_surface == true) {
-            ofstream Tecplot_File;
-            if (iSection == 0) Tecplot_File.open("Plane_Sections.plt", ios::out);
-            else Tecplot_File.open("Plane_Sections.plt", ios::app);
-            
-            if (iSection == 0) {
-                Tecplot_File << "TITLE = \"Plane sections\"" << endl;
-                Tecplot_File << "VARIABLES = \"X\",\"Y\",\"Z\"" << endl;
-            }
-            
-            /*--- Coordinates ---*/
-            for (iVertex = 0; iVertex < Xcoord_Plane.size(); iVertex++) {
-                Tecplot_File << Xcoord_Plane[iVertex] <<" "<< Ycoord_Plane[iVertex] <<" "<< Zcoord_Plane[iVertex] << endl;
-            }
-            
-            Tecplot_File.close();
-        }
-        
+        /*--- Write the output file (tecplot format) ---*/            
+            if (original_surface == true) {
+                ofstream Tecplot_File;
+                if (iSection == 0) Tecplot_File.open("Plane_Sections.plt", ios::out);
+                else Tecplot_File.open("Plane_Sections.plt", ios::app);
+                
+                if (iSection == 0) {
+                    Tecplot_File << "TITLE = \"Plane sections\"" << endl;
+                    Tecplot_File << "VARIABLES = \"X\",\"Y\",\"Z\"" << endl;
+                }
+                
+                /*--- Coordinates ---*/
+                for (iVertex = 0; iVertex < Xcoord_Plane.size(); iVertex++) {
+                    Tecplot_File << Xcoord_Plane[iVertex] <<" "<< Ycoord_Plane[iVertex] <<" "<< Zcoord_Plane[iVertex] << endl;
+                }
+                
+                Tecplot_File.close();
+            }        
     }
     
 #ifndef NO_MPI

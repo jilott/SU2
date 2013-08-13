@@ -83,6 +83,8 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
 	AddSpecialOption("MAGNET", MagneticForce, SetBoolOption, false);
 	/* DESCRIPTION: Joule heating simulation */
 	AddSpecialOption("JOULE_HEAT", JouleHeating, SetBoolOption, false);
+    default_vec_3d[0] = 10; default_vec_3d[1] = 1.0; default_vec_3d[2] = 2.0;
+	AddArrayOption("PLANE_SECTIONS", 3, PlaneSection, default_vec_3d);   
 	/* DESCRIPTION: Flag for running the electric potential solver as part of the plasma solver */
 	AddSpecialOption("ELECTRIC_SOLVER", ElectricSolver, SetBoolOption, false);
 	/* DESCRIPTION:  */
@@ -227,8 +229,7 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
 	AddSpecialOption("SMOOTH_GEOMETRY", SmoothNumGrid, SetBoolOption, false);
 	/* DESCRIPTION: Adapt the boundary elements */
 	AddSpecialOption("ADAPT_BOUNDARY", AdaptBoundary, SetBoolOption, true);
-
-
+ 
 	/*--- options related to time-marching ---*/
 	/* CONFIG_CATEGORY: Time-marching */
 
