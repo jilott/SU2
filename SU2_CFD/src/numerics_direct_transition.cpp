@@ -65,7 +65,6 @@ void CUpwLin_TransLM::ComputeResidual (double *val_residual, double **val_Jacobi
   //	cout << "Velicity y: " << Velocity_i[1] << ", " << Velocity_j[1] << endl;
   //	cout << "val_resid: " << val_residual[0] << ", " << val_residual[1] << endl;
   
-  
 	if (implicit) {
 		val_Jacobian_i[0][0] = a0;
 		val_Jacobian_i[1][1] = a0;
@@ -531,8 +530,8 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 	/*-- Strain = sqrt(2*Sij*Sij) --*/
 	strain = sqrt(2.*(    PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]
-	                                                             +  0.5*pow(PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0],2)
-	+  PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
+	           +  0.5*pow(PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0],2)
+                       +  PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
 
 	/*-- Note: no incompressible for now! --*/
 
@@ -572,19 +571,19 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 		/*-- Gradient of velocity magnitude ---*/
 		dU_dx = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][0]
-		                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][0]);
+		                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][0]);
 		if (nDim==3)
 			dU_dx += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][0]);
 
 		dU_dy = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][1]
-		                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][1]);
+		                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][1]);
 		if (nDim==3)
 			dU_dy += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][1]);
 
 		if (nDim==3)
 			dU_dz = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][2]
-			                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][2]
-			                                                                                                +2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][2]);
+			                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][2]
+			                          +2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][2]);
 
 		du_ds = U_i[1]/(U_i[0]*Velocity_Mag) * dU_dx +  // Streamwise velocity derivative
 				U_i[2]/(U_i[0]*Velocity_Mag) * dU_dy;
@@ -596,14 +595,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 		/*-- Fixed-point iterations to solve REth correlation --*/
 		f_lambda = 1.;
 
-		if  (boundary) {
-		  re_theta = 1399.83;
-		  lambda = 0.0;
-		  f_lambda = 0.0;
-		}
-		else {
 		for (int iter=0; iter<10; iter++) {
-
 
 			if (tu <= 1.3) {
 				re_theta = f_lambda * (1173.51-589.428*tu+0.2196/(tu*tu));
@@ -614,8 +606,13 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 			theta  = re_theta * Laminar_Viscosity_i / (U_i[0]*Velocity_Mag);
 
-			lambda = U_i[0]*theta*theta*du_ds / Laminar_Viscosity_i;
-			lambda = min(max(-0.1,lambda),0.1);
+			if (boundary) {
+				lambda = 0.0;
+			}
+			else {
+				lambda = U_i[0]*theta*theta*du_ds / Laminar_Viscosity_i;
+				lambda = min(max(-0.1,lambda),0.1);
+			}
 
 			if (lambda<=0.0) {
 				f_lambda = 1. - (-12.986*lambda - 123.66*lambda*lambda -
@@ -624,23 +621,22 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 				f_lambda = 1. + 0.275*(1.-exp(-35.*lambda))*exp(-2.*tu);
 			}
 		}
-		}
 
 		/*-- Calculate blending function f_theta --*/
 		time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
 
 		// Deactivated the f_wake parameter...
-		//theta_bl   = TransVar_i[1]/U_i[0]*Laminar_Viscosity_i / (U_i[0]*Velocity_Mag);
-		//delta_bl   = 7.5*theta_bl;
-		//delta      = 50.0*Vorticity*dist_i/Velocity_Mag*delta_bl + 1e-20;
-		//
-		//f_wake = 1.;
+		theta_bl   = TransVar_i[1]/U_i[0]*Laminar_Viscosity_i / (U_i[0]*Velocity_Mag);
+		delta_bl   = 7.5*theta_bl;
+		delta      = 50.0*Vorticity*dist_i/Velocity_Mag*delta_bl + 1e-20;
+
+		f_wake = 1.;
 
 		var1 = (TransVar_i[0]/U_i[0]-1./c_e2)/(1.0-1./c_e2);
 		var1 = 1. - pow(var1,2);
 
-		//f_theta = min(max(f_wake*exp(-pow(dist_i/delta,4)), var1),1.0);
-		f_theta = min(var1,1.0);
+		f_theta = min(max(f_wake*exp(-pow(dist_i/delta,4)), var1),1.0);
+		//f_theta = min(var1,1.0);
 
 		val_residual[1] = c_theta*U_i[0]/time_scale *  (1.-f_theta) * (re_theta-TransVar_i[1]/U_i[0]);
 		val_residual[1] *= Volume;
@@ -675,12 +671,12 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 		/*--- Implicit part ---*/
 		TransVar_id[0] = 1.0; TransVar_id[1] = 0.0;
-		CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(TransVar_i, TransVar_id, val_residual, val_residuald, config);
+		CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(TransVar_i, TransVar_id, val_residual, val_residuald, config, boundary);
 		val_Jacobian_i[0][0] = val_residuald[0];
 		val_Jacobian_i[1][0] = val_residuald[1];
 
 		TransVar_id[0] = 0.0; TransVar_id[1] = 1.0;
-		CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(TransVar_i, TransVar_id, val_residual, val_residuald, config);
+		CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(TransVar_i, TransVar_id, val_residual, val_residuald, config, boundary);
 		val_Jacobian_i[0][1] = val_residuald[0];
 		val_Jacobian_i[1][1] = val_residuald[1];
 
@@ -690,7 +686,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 }
 
 
-void CSourcePieceWise_TransLM::CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(double *TransVar_i, double *TransVar_id, double *val_residual, double *val_residuald, CConfig *config)
+void CSourcePieceWise_TransLM::CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(double *TransVar_i, double *TransVar_id, double *val_residual, double *val_residuald, CConfig *config, bool boundary)
 {
 	double rey_tc, flen, re_v, strain, f_onset1, f_onset2, f_onset3, f_onset,
 	f_turb, tu;
@@ -831,41 +827,40 @@ void CSourcePieceWise_TransLM::CSourcePieceWise_TransLM__ComputeResidual_TransLM
 		f_lambda = 1.;
 		{
 			double x3;
-			//if  (boundary) {
-			//  re_theta = 1399.83;
-			//  lambda = 0.0;
-			//  f_lambda = 0.0;
-			//}
-			//else {
-			for (int iter = 0; iter < 10; ++iter) {
-				if (tu <= 1.3)
-					re_theta = f_lambda*(1173.51-589.428*tu+0.2196/(tu*tu));
-				else {
-					result1 = pow(tu - 0.5658, -0.671);
-					re_theta = 331.5*f_lambda*result1;
-				}
-				if (re_theta < re_theta_lim)
-					re_theta = re_theta_lim;
-				else
-					re_theta = re_theta;
-				theta = re_theta*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag);
-				lambda = U_i[0]*theta*theta*du_ds/Laminar_Viscosity_i;
-				if (-0.1 < lambda)
-					x3 = lambda;
-				else
-					x3 = -0.1;
-				if (x3 > 0.1)
-					lambda = 0.1;
-				else
-					lambda = x3;
-				if (lambda <= 0.0) {
-					result1 = pow(2./3*tu, 1.5);
-					f_lambda = 1. - (-12.986*lambda-123.66*lambda*lambda-405.689
-							*lambda*lambda*lambda)*exp(-result1);
-				} else
-					f_lambda = 1. + 0.275*(1.-exp(-35.*lambda))*exp(-2.*tu);
-			}
-		}
+	          for (int iter = 0; iter < 10; ++iter) {
+	              if (tu <= 1.3)
+	                  re_theta = f_lambda*(1173.51-589.428*tu+0.2196/(tu*tu));
+	              else {
+	                  result1 = pow(tu - 0.5658, -0.671);
+	                  re_theta = 331.5*f_lambda*result1;
+	              }
+	              if (re_theta < re_theta_lim)
+	                  re_theta = re_theta_lim;
+	              else
+	                  re_theta = re_theta;
+	              theta = re_theta*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag);
+	              if (boundary)
+	                  lambda = 0.0;
+	              else {
+	                  lambda = U_i[0]*theta*theta*du_ds/Laminar_Viscosity_i;
+	                  if (-0.1 < lambda)
+	                      x3 = lambda;
+	                  else
+	                      x3 = -0.1;
+	                  if (x3 > 0.1)
+	                      lambda = 0.1;
+	                  else
+	                      lambda = x3;
+	              }
+	              if (lambda <= 0.0) {
+	                  result1 = pow(2./3*tu, 1.5);
+	                  f_lambda = 1. - (-12.986*lambda-123.66*lambda*lambda-405.689
+	                      *lambda*lambda*lambda)*exp(-result1);
+	              } else
+	                  f_lambda = 1. + 0.275*(1.-exp(-35.*lambda))*exp(-2.*tu);
+	          }
+	        }
+
 		/*-- Calculate blending function f_theta --*/
 		//}
 		time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*

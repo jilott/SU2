@@ -68,7 +68,11 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
 	/*--- Options related to problem definition and partitioning ---*/
 	/* CONFIG_CATEGORY: Problem Definition and Partitioning */
 
-	/* DESCRIPTION: Physical governing equations */
+	/* DESCRIPTION: Physical governing equations 
+   *              Multiple lines? No problem. Colons: Also no problem.
+   * DEFAULT: whatever I feel like!
+   * AVAILABLE_VALUES: I'm, overriding, it, all, yo
+   */
 	AddEnumOption("PHYSICAL_PROBLEM", Kind_Solver, Solver_Map, "NONE");
 	/* DESCRIPTION: Mathematical problem */
 	AddMathProblem("MATH_PROBLEM" , Adjoint, false , OneShot, false, 
@@ -160,9 +164,10 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
 
 
 	/* DESCRIPTION: Periodic boundary marker(s) for use with SU2_PBC
-     Format: ( periodic marker, donor marker, rotation_center_x, rotation_center_y,
-     rotation_center_z, rotation_angle_x-axis, rotation_angle_y-axis,
-     rotation_angle_z-axis, translation_x, translation_y, translation_z, ... ) */
+   *  Format: ( periodic marker, donor marker, rotation_center_x, rotation_center_y,
+   *            rotation_center_z, rotation_angle_x-axis, rotation_angle_y-axis,
+   *            rotation_angle_z-axis, translation_x, translation_y, translation_z, ... ) 
+   */
 	AddMarkerPeriodic("MARKER_PERIODIC", nMarker_PerBound, Marker_PerBound, Marker_PerDonor,
 			Periodic_RotCenter, Periodic_RotAngles, Periodic_Translation);
 	/* DESCRIPTION: Sliding mesh interface boundary marker(s) for use with SU2_SMC
@@ -179,7 +184,7 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
                flow_direction_y, flow_direction_z, ... ) where flow_direction is
                a unit vector. */
 	AddMarkerInlet("MARKER_INLET", nMarker_Inlet, Marker_Inlet, Inlet_Ttotal, Inlet_Ptotal, Inlet_FlowDir);
-	/* DESCRIPTION: % Supersonic inlet boundary marker(s)
+	/* DESCRIPTION: Supersonic inlet boundary marker(s)
    Format: (inlet marker, temperature, static pressure, velocity_x,
    velocity_y, velocity_z, ... ), i.e. primitive variables specified. */
 	AddMarkerInlet("MARKER_SUPERSONIC_INLET", nMarker_Supersonic_Inlet, Marker_Supersonic_Inlet,

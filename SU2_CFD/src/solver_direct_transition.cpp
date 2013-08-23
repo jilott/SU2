@@ -218,7 +218,7 @@ void CTransLMSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solv
         Vol = geometry->node[iPoint]->GetVolume();
         
         /*--- Modify matrix diagonal to assure diagonal dominance ---*/
-        Delta_flow = Vol / (solver_container[FLOW_SOL]->node[iPoint]->GetDelta_Time()*100);
+        Delta_flow = Vol / (solver_container[FLOW_SOL]->node[iPoint]->GetDelta_Time());
         Delta = Delta_flow;
         Jacobian.AddVal2Diag(iPoint,Delta);
         
@@ -881,4 +881,5 @@ void CTransLMSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container, 
 
 void CTransLMSolver::BC_Sym_Plane(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics,
 																 CConfig *config, unsigned short val_marker) {
+
 }
