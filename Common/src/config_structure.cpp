@@ -107,15 +107,39 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	/*--- Options related to problem definition and partitioning ---*/
 	/* CONFIG_CATEGORY: Problem Definition */
   
-	/* DESCRIPTION: Physical governing equations */
-	AddEnumOption("PHYSICAL_PROBLEM", Kind_Solver, Solver_Map, "NONE");
+	/* DESCRIPTION: Physical governing equations 
+  * (this is a multiple line description)
+  * DEFAULT: EULER
+  * AVAILABLE_VALUES: EULER, NAVIER-STOKES, OTHER
+  */
+	AddEnumOption("GOVERNING_EQUATIONS", Kind_Solver, Solver_Map, "NONE");
 	/* DESCRIPTION: Mathematical problem */
-	AddMathProblem("MATH_PROBLEM" , Adjoint, false , OneShot, false, Linearized, false, Restart_Flow, false);
-  /* DESCRIPTION: Specify turbulence model */
-	AddEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, "NONE");
-	/* DESCRIPTION: Specify transition model */
-	AddEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, "NONE");
-	/* DESCRIPTION: Free-surface problem */
+	AddMathProblem("SOLVER_MODE" , Adjoint, false , OneShot, false, Linearized, false, Restart_Flow, false);
+  
+  /*--- Options related to turb modeling ---*/
+	/* CONFIG_CATEGORY: Input Files */
+  
+  /* DESCRIPTION: Mesh input file format */
+	AddEnumOption("MESH_FORMAT", Mesh_FileFormat, Input_Map, "SU2");
+	/* DESCRIPTION: Convert a CGNS mesh to SU2 format */
+	AddSpecialOption("CGNS_TO_SU2", CGNS_To_SU2, SetBoolOption, false);
+  /* DESCRIPTION: Divide rectangles into triangles */
+	AddSpecialOption("DIVIDE_ELEMENTS", Divide_Element, SetBoolOption, false);
+	/* DESCRIPTION:  Mesh input file */
+	AddScalarOption("MESH_FILENAME", Mesh_FileName, string("mesh.su2"));
+  /* DESCRIPTION: Restart flow input file */
+	AddScalarOption("SOLUTION_FLOW_FILENAME", Solution_FlowFileName, string("solution_flow.dat"));
+	/* DESCRIPTION: Restart linear flow input file */
+	AddScalarOption("SOLUTION_LIN_FILENAME", Solution_LinFileName, string("solution_lin.dat"));
+	/* DESCRIPTION: Restart adjoint input file */
+	AddScalarOption("SOLUTION_ADJ_FILENAME", Solution_AdjFileName, string("solution_adj.dat"));
+  /* DESCRIPTION: Restart solution from native solution file */
+	AddSpecialOption("RESTART_SOL", Restart, SetBoolOption, false);  
+  
+  /*--- Options related to turb modeling ---*/
+	/* CONFIG_CATEGORY: Gov. Eqn. Variants */
+  
+  /* DESCRIPTION: Free-surface problem */
 	AddSpecialOption("FREE_SURFACE", FreeSurface, SetBoolOption, false);
 	/* DESCRIPTION: Incompressible flow using artificial compressibility */
 	AddSpecialOption("INCOMPRESSIBLE_FORMULATION", Incompressible, SetBoolOption, false);
@@ -125,13 +149,17 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddSpecialOption("GRAVITY_FORCE", GravityForce, SetBoolOption, false);
   /* DESCRIPTION: Perform a low fidelity simulation */
 	AddSpecialOption("LOW_FIDELITY_SIMULATION", LowFidelitySim, SetBoolOption, false);
-  /* DESCRIPTION: Restart solution from native solution file */
-	AddSpecialOption("RESTART_SOL", Restart, SetBoolOption, false);
-  /* DESCRIPTION: Write a tecplot file for each partition */
-	AddSpecialOption("VISUALIZE_PART", Visualize_Partition, SetBoolOption, false);
+  
+  /*--- Options related to turb modeling ---*/
+	/* CONFIG_CATEGORY: Turbulence Modeling */
+  
+  /* DESCRIPTION: Specify turbulence model */
+	AddEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, "NONE");
+	/* DESCRIPTION: Specify transition model */
+	AddEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, "NONE");
   
 	/*--- Options related to various boundary markers ---*/
-	/* CONFIG_CATEGORY: Boundary Markers */
+	/* CONFIG_CATEGORY: Marker Categories */
   
 	/* DESCRIPTION: Marker(s) of the surface in the surface flow solution file */
 	AddMarkerOption("MARKER_PLOTTING", nMarker_Plotting, Marker_Plotting);
@@ -139,41 +167,33 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddMarkerOption("MARKER_MONITORING", nMarker_Monitoring, Marker_Monitoring);
   /* DESCRIPTION: Marker(s) of the surface where objective function (design problem) will be evaluated */
 	AddMarkerOption("MARKER_DESIGNING", nMarker_Designing, Marker_Designing);
+//  /* DESCRIPTION: Marker(s) of the surface where objective function (design problem) will be evaluated */
+//	AddMarkerOption("MARKER_FUNCTIONAL", nMarker_ObjFunc, Marker_ObjFunc);
+  
+  /*--- Options related to various boundary markers ---*/
+	/* CONFIG_CATEGORY: Boundary Conditions */
+  
 	/* DESCRIPTION: Euler wall boundary marker(s) */
-	AddMarkerOption("MARKER_EULER", nMarker_Euler, Marker_Euler);
-	/* DESCRIPTION: Adiabatic wall boundary condition */
-	AddSpecialOption("ADIABATIC_WALL", AdiabaticWall, SetBoolOption, true);
-	/* DESCRIPTION: Isothermal wall boundary condition */
-	AddSpecialOption("ISOTHERMAL_WALL", IsothermalWall, SetBoolOption, false);
-	/* DESCRIPTION: Catalytic wall boundary condition */
-	AddSpecialOption("CATALYTIC_WALL", CatalyticWall, SetBoolOption, false);
+	AddMarkerOption("BC_EULER", nMarker_Euler, Marker_Euler);
 	/* DESCRIPTION: Far-field boundary marker(s) */
-	AddMarkerOption("MARKER_FAR", nMarker_FarField, Marker_FarField);
+	AddMarkerOption("BC_FARFIELD", nMarker_FarField, Marker_FarField);
 	/* DESCRIPTION: Symmetry boundary marker(s) */
-	AddMarkerOption("MARKER_SYM", nMarker_SymWall, Marker_SymWall);
+	AddMarkerOption("BC_SYMMETRY", nMarker_SymWall, Marker_SymWall);
 	/* DESCRIPTION: Near-Field boundary marker(s) */
-	AddMarkerOption("MARKER_NEARFIELD", nMarker_NearFieldBound, Marker_NearFieldBound);
+	AddMarkerOption("BC_NEARFIELD", nMarker_NearFieldBound, Marker_NearFieldBound);
 	/* DESCRIPTION: Zone interface boundary marker(s) */
-	AddMarkerOption("MARKER_INTERFACE", nMarker_InterfaceBound, Marker_InterfaceBound);
-	/* DESCRIPTION: Dirichlet boundary marker(s) */
-	AddMarkerOption("MARKER_DIRICHLET", nMarker_Dirichlet, Marker_Dirichlet);
-  /* DESCRIPTION: Neumann boundary marker(s) */
-	AddMarkerOption("MARKER_NEUMANN", nMarker_Neumann, Marker_Neumann);
-  /* DESCRIPTION: Electric dirichlet boundary marker(s) */
-	AddMarkerDirichlet("ELEC_DIRICHLET", nMarker_Dirichlet_Elec, Marker_Dirichlet_Elec, Dirichlet_Value );
-	/* DESCRIPTION: Electric neumann boundary marker(s) */
-	AddMarkerOption("ELEC_NEUMANN", nMarker_Neumann_Elec, Marker_Neumann_Elec);
+	AddMarkerOption("BC_INTERFACE", nMarker_InterfaceBound, Marker_InterfaceBound);
 	/* DESCRIPTION: Custom boundary marker(s) */
-	AddMarkerOption("MARKER_CUSTOM", nMarker_Custom, Marker_Custom);
+	AddMarkerOption("BC_CUSTOM", nMarker_Custom, Marker_Custom);
 	/* DESCRIPTION: Periodic boundary marker(s) for use with SU2_PBC
    Format: ( periodic marker, donor marker, rotation_center_x, rotation_center_y,
    rotation_center_z, rotation_angle_x-axis, rotation_angle_y-axis,
    rotation_angle_z-axis, translation_x, translation_y, translation_z, ... ) */
-	AddMarkerPeriodic("MARKER_PERIODIC", nMarker_PerBound, Marker_PerBound, Marker_PerDonor,
+	AddMarkerPeriodic("BC_PERIODIC", nMarker_PerBound, Marker_PerBound, Marker_PerDonor,
                     Periodic_RotCenter, Periodic_RotAngles, Periodic_Translation);
 	/* DESCRIPTION: Sliding mesh interface boundary marker(s) for use with SU2_SMC
    Format: ( sliding marker, zone # of sliding marker, donor marker, zone # of donor, ... ) */
-	AddMarkerSliding("MARKER_SLIDING", nMarker_Sliding, Marker_SlideBound, Marker_SlideDonor,
+	AddMarkerSliding("BC_SLIDING", nMarker_Sliding, Marker_SlideBound, Marker_SlideDonor,
                    SlideBound_Zone, SlideDonor_Zone);
   /* DESCRIPTION: Inlet boundary type */
 	AddEnumOption("INLET_TYPE", Kind_Inlet, Inlet_Map, "TOTAL_CONDITIONS");
@@ -184,81 +204,69 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
    Mass Flow: (inlet marker, density, velocity magnitude, flow_direction_x,
    flow_direction_y, flow_direction_z, ... ) where flow_direction is
    a unit vector. */
-	AddMarkerInlet("MARKER_INLET", nMarker_Inlet, Marker_Inlet, Inlet_Ttotal, Inlet_Ptotal, Inlet_FlowDir);
+	AddMarkerInlet("BC_INLET", nMarker_Inlet, Marker_Inlet, Inlet_Ttotal, Inlet_Ptotal, Inlet_FlowDir);
 	/* DESCRIPTION: % Supersonic inlet boundary marker(s)
    Format: (inlet marker, temperature, static pressure, velocity_x,
    velocity_y, velocity_z, ... ), i.e. primitive variables specified. */
-	AddMarkerInlet("MARKER_SUPERSONIC_INLET", nMarker_Supersonic_Inlet, Marker_Supersonic_Inlet,
+	AddMarkerInlet("BC_SUPERSONIC_INLET", nMarker_Supersonic_Inlet, Marker_Supersonic_Inlet,
                  Inlet_Temperature, Inlet_Pressure, Inlet_Velocity);
 	/* DESCRIPTION: Outlet boundary marker(s)
    Format: ( outlet marker, back pressure (static), ... ) */
-	AddMarkerOutlet("MARKER_OUTLET", nMarker_Outlet, Marker_Outlet, Outlet_Pressure);
-	/* DESCRIPTION: Isothermal wall boundary marker(s)
-   Format: ( isothermal marker, wall temperature (static), ... ) */
-	AddMarkerOutlet("MARKER_ISOTHERMAL", nMarker_Isothermal, Marker_Isothermal, Isothermal_Temperature);
-	/* DESCRIPTION: Specified heat flux wall boundary marker(s)
-   Format: ( Heat flux marker, wall heat flux (static), ... ) */
-	AddMarkerOutlet("MARKER_HEATFLUX", nMarker_HeatFlux, Marker_HeatFlux, Heat_Flux);
+	AddMarkerOutlet("BC_OUTLET", nMarker_Outlet, Marker_Outlet, Outlet_Pressure);
+	/* DESCRIPTION: Navier-Stokes (no-slip), isothermal wall marker(s) (NONE = no marker)
+  * Format: ( marker name, constant wall temperature (K), ... ) */
+	AddMarkerOutlet("BC_ISOTHERMAL", nMarker_Isothermal, Marker_Isothermal, Isothermal_Temperature);
+	/* DESCRIPTION: Navier-Stokes (no-slip), constant heat flux wall  marker(s) (NONE = no marker)
+  * Format: ( marker name, constant heat flux (J/m^2), ... )  */
+	AddMarkerOutlet("BC_HEATFLUX", nMarker_HeatFlux, Marker_HeatFlux, Heat_Flux);
+
 	/* DESCRIPTION: Nacelle inflow boundary marker(s)
-   Format: ( nacelle inflow marker, fan face Mach, ... ) */
-	AddMarkerOutlet("MARKER_NACELLE_INFLOW", nMarker_NacelleInflow, Marker_NacelleInflow, FanFace_Mach_Target);
-  /* DESCRIPTION: Engine subsonic intake region */
-	AddSpecialOption("SUBSONIC_NACELLE_INFLOW", Engine_Intake, SetBoolOption, false);
+  * Format: ( nacelle inflow marker, fan face Mach, ... ) */
+	AddMarkerOutlet("BC_ENGINE_INTAKE", nMarker_NacelleInflow, Marker_NacelleInflow, FanFace_Mach_Target);
 	/* DESCRIPTION: Nacelle exhaust boundary marker(s)
    Format: (nacelle exhaust marker, total nozzle temp, total nozzle pressure, ... )*/
-	AddMarkerInlet("MARKER_NACELLE_EXHAUST", nMarker_NacelleExhaust, Marker_NacelleExhaust, Nozzle_Ttotal, Nozzle_Ptotal);
+	AddMarkerInlet("BC_ENGINE_EXHAUST", nMarker_NacelleExhaust, Marker_NacelleExhaust, Nozzle_Ttotal, Nozzle_Ptotal);
 	/* DESCRIPTION: Displacement boundary marker(s) */
-  AddMarkerDisplacement("MARKER_DISPL", nMarker_Displacement, Marker_Displacement, Displ_Value);
+  AddMarkerDisplacement("BC_DISPLACEMENT", nMarker_Displacement, Marker_Displacement, Displ_Value);
 	/* DESCRIPTION: Load boundary marker(s) */
-	AddMarkerLoad("MARKER_LOAD", nMarker_Load, Marker_Load, Load_Value);
-	/* DESCRIPTION: Flow load boundary marker(s) */
-	AddMarkerFlowLoad("MARKER_FLOWLOAD", nMarker_FlowLoad, Marker_FlowLoad, FlowLoad_Value);
-	/* DESCRIPTION: FW-H boundary marker(s) */
-	AddMarkerOption("MARKER_FWH", nMarker_FWH, Marker_FWH);
-	/* DESCRIPTION: Observer boundary marker(s) */
-	AddMarkerOption("MARKER_OBSERVER", nMarker_Observer, Marker_Observer);
-	/* DESCRIPTION: Damping factor for engine inlet condition */
-	AddScalarOption("DAMP_NACELLE_INFLOW", Damp_Nacelle_Inflow, 0.1);
+	AddMarkerLoad("BC_LOAD", nMarker_Load, Marker_Load, Load_Value);
+ 
+  
+  /*--- Options related to grid adaptation ---*/
+	/* CONFIG_CATEGORY: Engine Options */
+  
+  /* DESCRIPTION: Engine subsonic intake region */
+	AddSpecialOption("SUBSONIC_ENGINE_INIT", Engine_Intake, SetBoolOption, false);
+  /* DESCRIPTION: Damping factor for engine inlet condition */
+	AddScalarOption("ENGINE_MASSFLOW_DAMPING", Damp_Nacelle_Inflow, 0.1);
   
 	/*--- Options related to grid adaptation ---*/
 	/* CONFIG_CATEGORY: Grid adaptation */
   
 	/* DESCRIPTION: Kind of grid adaptation */
-	AddEnumOption("KIND_ADAPT", Kind_Adaptation, Adapt_Map, "NONE");
+	AddEnumOption("ADAPTATION_SCHEME", Kind_Adaptation, Adapt_Map, "NONE");
 	/* DESCRIPTION: Percentage of new elements (% of the original number of elements) */
-	AddScalarOption("NEW_ELEMS", New_Elem_Adapt, -1.0);
+	AddScalarOption("GROWTH_FACTOR", New_Elem_Adapt, -1.0);
 	/* DESCRIPTION: Scale factor for the dual volume */
 	AddScalarOption("DUALVOL_POWER", DualVol_Power, 0.5);
-	/* DESCRIPTION: Use analytical definition for surfaces */
-	AddEnumOption("ANALYTICAL_SURFDEF", Analytical_Surface, Geo_Analytic_Map, "NONE");
 	/* DESCRIPTION: Before each computation, implicitly smooth the nodal coordinates */
 	AddSpecialOption("SMOOTH_GEOMETRY", SmoothNumGrid, SetBoolOption, false);
 	/* DESCRIPTION: Adapt the boundary elements */
 	AddSpecialOption("ADAPT_BOUNDARY", AdaptBoundary, SetBoolOption, true);
-  /* DESCRIPTION: Divide rectangles into triangles */
-	AddSpecialOption("DIVIDE_ELEMENTS", Divide_Element, SetBoolOption, false);
+
   
 	/*--- Options related to time-marching ---*/
-	/* CONFIG_CATEGORY: Time-marching */
+	/* CONFIG_CATEGORY: Time Integration */
   
 	/* DESCRIPTION: Unsteady simulation  */
 	AddEnumOption("UNSTEADY_SIMULATION", Unsteady_Simulation, Unsteady_Map, "NO");
-	/* DESCRIPTION:  Unsteady farfield boundaries  */
-	AddSpecialOption("UNSTEADY_FARFIELD", Unsteady_Farfield, SetBoolOption, false);
+
 	/* DESCRIPTION:  Courant-Friedrichs-Lewy condition of the finest grid */
 	AddScalarOption("CFL_NUMBER", CFLFineGrid, 1.25);
 	/* DESCRIPTION: CFL ramp (factor, number of iterations, CFL limit) */
 	default_vec_3d[0] = 1.0; default_vec_3d[1] = 100.0; default_vec_3d[2] = 1.0;
 	AddArrayOption("CFL_RAMP", 3, CFLRamp, default_vec_3d);
-  /* DESCRIPTION: Reduction factor of the CFL coefficient in the adjoint problem */
-	AddScalarOption("ADJ_CFL_REDUCTION", Adj_CFLRedCoeff, 0.8);
-  /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
-	AddScalarOption("TURB_CFL_REDUCTION", Turb_CFLRedCoeff, 1.0);
-  /* DESCRIPTION: Reduction factor of the CFL coefficient in the turbulent adjoint problem */
-	AddScalarOption("ADJTURB_CFL_REDUCTION", AdjTurb_CFLRedCoeff, 1.0);
-  /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
-	AddScalarOption("LEVELSET_CFL_REDUCTION", LevelSet_CFLRedCoeff, 1E-2);
-	/* DESCRIPTION: Number of total iterations */
+  /* DESCRIPTION: Number of total iterations */
 	AddScalarOption("EXT_ITER", nExtIter, 999999);
 	// these options share nRKStep as their size, which is not a good idea in general
 	/* DESCRIPTION: Runge-Kutta alpha coefficients */
@@ -275,29 +283,40 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddScalarOption("TIME_INSTANCES", nTimeInstances, 1);
   /* DESCRIPTION: Number of internal iterations (dual time method) */
 	AddScalarOption("UNST_RESTART_ITER", Unst_RestartIter, 0);
+  
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("FLOW_TIME_INTEGRATION", Kind_TimeIntScheme_Flow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
 	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_FLOW", Kind_TimeIntScheme_Flow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+	AddEnumOption("LEVELSET_TIME_INTEGRATION", Kind_TimeIntScheme_LevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("TURB_TIME_INTEGRATION", Kind_TimeIntScheme_Turb, Time_Int_Map, "EULER_IMPLICIT");
 	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_LEVELSET", Kind_TimeIntScheme_LevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+	AddEnumOption("WAVE_TIME_INTEGRATION", Kind_TimeIntScheme_Wave, Time_Int_Map, "EULER_IMPLICIT");
 	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_ADJLEVELSET", Kind_TimeIntScheme_AdjLevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+	AddEnumOption("FEA_TIME_INTEGRATION", Kind_TimeIntScheme_FEA, Time_Int_Map, "EULER_IMPLICIT");
+  
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("ADJFLOW_TIME_INTEGRATION", Kind_TimeIntScheme_AdjFlow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+  	/* DESCRIPTION: Time discretization */
+	AddEnumOption("ADJTURB_TIME_INTEGRATION", Kind_TimeIntScheme_AdjTurb, Time_Int_Map, "EULER_IMPLICIT");
 	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_PLASMA", Kind_TimeIntScheme_Plasma, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_ADJPLASMA", Kind_TimeIntScheme_AdjPlasma, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_ADJ", Kind_TimeIntScheme_AdjFlow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_LIN", Kind_TimeIntScheme_LinFlow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_TURB", Kind_TimeIntScheme_Turb, Time_Int_Map, "EULER_IMPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_ADJTURB", Kind_TimeIntScheme_AdjTurb, Time_Int_Map, "EULER_IMPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_WAVE", Kind_TimeIntScheme_Wave, Time_Int_Map, "EULER_IMPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_FEA", Kind_TimeIntScheme_FEA, Time_Int_Map, "EULER_IMPLICIT");
+	AddEnumOption("ADJLEVELSET_TIME_INTEGRATION", Kind_TimeIntScheme_AdjLevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+  
+  /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
+	AddScalarOption("TURB_CFL_REDUCTION", Turb_CFLRedCoeff, 1.0);
+  /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
+	AddScalarOption("LEVELSET_CFL_REDUCTION", LevelSet_CFLRedCoeff, 1E-2);
+  /* DESCRIPTION: Reduction factor of the CFL coefficient in the adjoint problem */
+	AddScalarOption("ADJFLOW_CFL_REDUCTION", Adj_CFLRedCoeff, 0.8);
+  /* DESCRIPTION: Reduction factor of the CFL coefficient in the turbulent adjoint problem */
+	AddScalarOption("ADJTURB_CFL_REDUCTION", AdjTurb_CFLRedCoeff, 1.0);
 
+  /* DESCRIPTION:  Unsteady farfield boundaries  */
+	AddSpecialOption("UNSTEADY_FARFIELD", Unsteady_Farfield, SetBoolOption, false);
+	/* DESCRIPTION: Restart flow input file */
+	AddScalarOption("FARFIELD_FILENAME", Farfield_FileName, string("farfield.dat"));
+  
+  
 	/*--- Options related to the linear solvers ---*/
 	/* CONFIG_CATEGORY: Linear solver definition */
   
@@ -625,24 +644,15 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
   
 	/* DESCRIPTION: I/O */
 	AddEnumOption("OUTPUT_FORMAT", Output_FileFormat, Output_Map, "TECPLOT");
-	/* DESCRIPTION: Mesh input file format */
-	AddEnumOption("MESH_FORMAT", Mesh_FileFormat, Input_Map, "SU2");
-	/* DESCRIPTION: Convert a CGNS mesh to SU2 format */
-	AddSpecialOption("CGNS_TO_SU2", CGNS_To_SU2, SetBoolOption, false);
-	/* DESCRIPTION:  Mesh input file */
-	AddScalarOption("MESH_FILENAME", Mesh_FileName, string("mesh.su2"));
+
 	/* DESCRIPTION: Mesh output file */
 	AddScalarOption("MESH_OUT_FILENAME", Mesh_Out_FileName, string("mesh_out.su2"));
 	/* DESCRIPTION: Output file convergence history (w/o extension) */
 	AddScalarOption("CONV_FILENAME", Conv_FileName, string("history"));
-	/* DESCRIPTION: Restart flow input file */
-	AddScalarOption("SOLUTION_FLOW_FILENAME", Solution_FlowFileName, string("solution_flow.dat"));
-	/* DESCRIPTION: Restart flow input file */
-	AddScalarOption("FARFIELD_FILENAME", Farfield_FileName, string("farfield.dat"));
-	/* DESCRIPTION: Restart linear flow input file */
-	AddScalarOption("SOLUTION_LIN_FILENAME", Solution_LinFileName, string("solution_lin.dat"));
-	/* DESCRIPTION: Restart adjoint input file */
-	AddScalarOption("SOLUTION_ADJ_FILENAME", Solution_AdjFileName, string("solution_adj.dat"));
+  
+  /* DESCRIPTION: Write a tecplot file for each partition */
+	AddSpecialOption("VISUALIZE_PART", Visualize_Partition, SetBoolOption, false);
+
 	/* DESCRIPTION: Output file restart flow */
 	AddScalarOption("RESTART_FLOW_FILENAME", Restart_FlowFileName, string("restart_flow.dat"));
 	/* DESCRIPTION: Output file linear flow */
