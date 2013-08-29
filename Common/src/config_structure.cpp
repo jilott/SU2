@@ -92,6 +92,7 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
   
 	/*--- Intialize pointers to NULL. If we don't find these values
    in the config file, they will all be set to zero. ---*/
+  Kind_GridMovement = NULL;
 	Motion_Origin_X = NULL;     Motion_Origin_Y = NULL;     Motion_Origin_Z = NULL;
 	Translation_Rate_X = NULL;  Translation_Rate_Y = NULL;  Translation_Rate_Z = NULL;
 	Rotation_Rate_X = NULL;     Rotation_Rate_Y = NULL;     Rotation_Rate_Z = NULL;
@@ -129,7 +130,6 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
   /* DESCRIPTION: Write a tecplot file for each partition */
 	AddSpecialOption("VISUALIZE_PART", Visualize_Partition, SetBoolOption, false);
   
-  
 	/*--- Options related to various boundary markers ---*/
 	/* CONFIG_CATEGORY: Boundary Markers */
   
@@ -139,8 +139,6 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddMarkerOption("MARKER_MONITORING", nMarker_Monitoring, Marker_Monitoring);
   /* DESCRIPTION: Marker(s) of the surface where objective function (design problem) will be evaluated */
 	AddMarkerOption("MARKER_DESIGNING", nMarker_Designing, Marker_Designing);
-  /* DESCRIPTION: Marker(s) of moving surfaces (MOVING_WALL or DEFORMING grid motion). */
-	AddMarkerOption("MARKER_MOVING", nMarker_Moving, Marker_Moving);
 	/* DESCRIPTION: Euler wall boundary marker(s) */
 	AddMarkerOption("MARKER_EULER", nMarker_Euler, Marker_Euler);
 	/* DESCRIPTION: Adiabatic wall boundary condition */
@@ -204,6 +202,8 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	/* DESCRIPTION: Nacelle inflow boundary marker(s)
    Format: ( nacelle inflow marker, fan face Mach, ... ) */
 	AddMarkerOutlet("MARKER_NACELLE_INFLOW", nMarker_NacelleInflow, Marker_NacelleInflow, FanFace_Mach_Target);
+  /* DESCRIPTION: Engine subsonic intake region */
+	AddSpecialOption("SUBSONIC_NACELLE_INFLOW", Engine_Intake, SetBoolOption, false);
 	/* DESCRIPTION: Nacelle exhaust boundary marker(s)
    Format: (nacelle exhaust marker, total nozzle temp, total nozzle pressure, ... )*/
 	AddMarkerInlet("MARKER_NACELLE_EXHAUST", nMarker_NacelleExhaust, Marker_NacelleExhaust, Nozzle_Ttotal, Nozzle_Ptotal);
@@ -217,7 +217,9 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddMarkerOption("MARKER_FWH", nMarker_FWH, Marker_FWH);
 	/* DESCRIPTION: Observer boundary marker(s) */
 	AddMarkerOption("MARKER_OBSERVER", nMarker_Observer, Marker_Observer);
-
+	/* DESCRIPTION: Damping factor for engine inlet condition */
+	AddScalarOption("DAMP_NACELLE_INFLOW", Damp_Nacelle_Inflow, 0.1);
+  
 	/*--- Options related to grid adaptation ---*/
 	/* CONFIG_CATEGORY: Grid adaptation */
   
@@ -253,7 +255,7 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
 	AddScalarOption("TURB_CFL_REDUCTION", Turb_CFLRedCoeff, 1.0);
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the turbulent adjoint problem */
-	AddScalarOption("ADJTURB_CFL_REDUCTION", AdjTurb_CFLRedCoeff, 0.1);
+	AddScalarOption("ADJTURB_CFL_REDUCTION", AdjTurb_CFLRedCoeff, 1.0);
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
 	AddScalarOption("LEVELSET_CFL_REDUCTION", LevelSet_CFLRedCoeff, 1E-2);
 	/* DESCRIPTION: Number of total iterations */
@@ -271,6 +273,8 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddScalarOption("UNST_INT_ITER", Unst_nIntIter, 100);
 	/* DESCRIPTION: Integer number of periodic time instances for Time Spectral */
 	AddScalarOption("TIME_INSTANCES", nTimeInstances, 1);
+  /* DESCRIPTION: Number of internal iterations (dual time method) */
+	AddScalarOption("UNST_RESTART_ITER", Unst_RestartIter, 0);
 	/* DESCRIPTION: Time discretization */
 	AddEnumOption("TIME_DISCRE_FLOW", Kind_TimeIntScheme_Flow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
 	/* DESCRIPTION: Time discretization */
@@ -328,60 +332,59 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	/* DESCRIPTION: Mesh motion for unsteady simulations */
 	AddSpecialOption("GRID_MOVEMENT", Grid_Movement, SetBoolOption, false);
 	/* DESCRIPTION: Type of mesh motion */
-  Kind_GridMovement = new unsigned short[1];
-  Kind_GridMovement[0] = 0;
-//AddEnumListOption("GRID_MOVEMENT_KIND", nZone, Kind_GridMovement, GridMovement_Map);
-	default_vec_3d[0] = 0; default_vec_3d[1] = 0;
-	/* DESCRIPTION: % Mach number (non-dimensional, based on the mesh velocity and freestream vals.) */
+  AddEnumListOption("GRID_MOVEMENT_KIND", nGridMovement, Kind_GridMovement, GridMovement_Map);
+  /* DESCRIPTION: Marker(s) of moving surfaces (MOVING_WALL or DEFORMING grid motion). */
+	AddMarkerOption("MARKER_MOVING", nMarker_Moving, Marker_Moving);
+	/* DESCRIPTION: Mach number (non-dimensional, based on the mesh velocity and freestream vals.) */
 	AddScalarOption("MACH_MOTION", Mach_Motion, 0.0);
 	/* DESCRIPTION: Coordinates of the rigid motion origin */
-	AddListOption("MOTION_ORIGIN_X", nZone, Motion_Origin_X);
+	AddListOption("MOTION_ORIGIN_X", nMotion_Origin_X, Motion_Origin_X);
 	/* DESCRIPTION: Coordinates of the rigid motion origin */
-	AddListOption("MOTION_ORIGIN_Y", nZone, Motion_Origin_Y);
+	AddListOption("MOTION_ORIGIN_Y", nMotion_Origin_Y, Motion_Origin_Y);
 	/* DESCRIPTION: Coordinates of the rigid motion origin */
-	AddListOption("MOTION_ORIGIN_Z", nZone, Motion_Origin_Z);
+	AddListOption("MOTION_ORIGIN_Z", nMotion_Origin_Z, Motion_Origin_Z);
 	/* DESCRIPTION: Translational velocity vector (m/s) in the x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("TRANSLATION_RATE_X", nZone, Translation_Rate_X);
+	AddListOption("TRANSLATION_RATE_X", nTranslation_Rate_X, Translation_Rate_X);
 	/* DESCRIPTION: Translational velocity vector (m/s) in the x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("TRANSLATION_RATE_Y", nZone, Translation_Rate_Y);
+	AddListOption("TRANSLATION_RATE_Y", nTranslation_Rate_Y, Translation_Rate_Y);
 	/* DESCRIPTION: Translational velocity vector (m/s) in the x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("TRANSLATION_RATE_Z", nZone, Translation_Rate_Z);
+	AddListOption("TRANSLATION_RATE_Z", nTranslation_Rate_Z, Translation_Rate_Z);
 	/* DESCRIPTION: Angular velocity vector (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("ROTATION_RATE_X", nZone, Rotation_Rate_X);
+	AddListOption("ROTATION_RATE_X", nRotation_Rate_X, Rotation_Rate_X);
 	/* DESCRIPTION: Angular velocity vector (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("ROTATION_RATE_Y", nZone, Rotation_Rate_Y);
+	AddListOption("ROTATION_RATE_Y", nRotation_Rate_Y, Rotation_Rate_Y);
 	/* DESCRIPTION: Angular velocity vector (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("ROTATION_RATE_Z", nZone, Rotation_Rate_Z);
+	AddListOption("ROTATION_RATE_Z", nRotation_Rate_Z, Rotation_Rate_Z);
 	/* DESCRIPTION: Pitching angular freq. (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_OMEGA_X", nZone, Pitching_Omega_X);
+	AddListOption("PITCHING_OMEGA_X", nPitching_Omega_X, Pitching_Omega_X);
 	/* DESCRIPTION: Pitching angular freq. (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_OMEGA_Y", nZone, Pitching_Omega_Y);
+	AddListOption("PITCHING_OMEGA_Y", nPitching_Omega_Y, Pitching_Omega_Y);
 	/* DESCRIPTION: Pitching angular freq. (rad/s) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_OMEGA_Z", nZone, Pitching_Omega_Z);
+	AddListOption("PITCHING_OMEGA_Z", nPitching_Omega_Z, Pitching_Omega_Z);
 	/* DESCRIPTION: Pitching amplitude (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_AMPL_X", nZone, Pitching_Ampl_X);
+	AddListOption("PITCHING_AMPL_X", nPitching_Ampl_X, Pitching_Ampl_X);
 	/* DESCRIPTION: Pitching amplitude (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_AMPL_Y", nZone, Pitching_Ampl_Y);
+	AddListOption("PITCHING_AMPL_Y", nPitching_Ampl_Y, Pitching_Ampl_Y);
 	/* DESCRIPTION: Pitching amplitude (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_AMPL_Z", nZone, Pitching_Ampl_Z);
+	AddListOption("PITCHING_AMPL_Z", nPitching_Ampl_Z, Pitching_Ampl_Z);
 	/* DESCRIPTION: Pitching phase offset (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_PHASE_X", nZone, Pitching_Phase_X);
+	AddListOption("PITCHING_PHASE_X", nPitching_Phase_X, Pitching_Phase_X);
 	/* DESCRIPTION: Pitching phase offset (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_PHASE_Y", nZone, Pitching_Phase_Y);
+	AddListOption("PITCHING_PHASE_Y", nPitching_Phase_Y, Pitching_Phase_Y);
 	/* DESCRIPTION: Pitching phase offset (degrees) about x, y, & z axes (RIGID_MOTION only) */
-	AddListOption("PITCHING_PHASE_Z", nZone, Pitching_Phase_Z);
+	AddListOption("PITCHING_PHASE_Z", nPitching_Phase_Z, Pitching_Phase_Z);
 	/* DESCRIPTION: Plunging angular freq. (rad/s) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_OMEGA_X", nZone, Plunging_Omega_X);
+	AddListOption("PLUNGING_OMEGA_X", nPlunging_Omega_X, Plunging_Omega_X);
 	/* DESCRIPTION: Plunging angular freq. (rad/s) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_OMEGA_Y", nZone, Plunging_Omega_Y);
+	AddListOption("PLUNGING_OMEGA_Y", nPlunging_Omega_Y, Plunging_Omega_Y);
 	/* DESCRIPTION: Plunging angular freq. (rad/s) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_OMEGA_Z", nZone, Plunging_Omega_Z);
+	AddListOption("PLUNGING_OMEGA_Z", nPlunging_Omega_Z, Plunging_Omega_Z);
 	/* DESCRIPTION: Plunging amplitude (m) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_AMPL_X", nZone, Plunging_Ampl_X);
+	AddListOption("PLUNGING_AMPL_X", nPlunging_Ampl_X, Plunging_Ampl_X);
 	/* DESCRIPTION: Plunging amplitude (m) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_AMPL_Y", nZone, Plunging_Ampl_Y);
+	AddListOption("PLUNGING_AMPL_Y", nPlunging_Ampl_Y, Plunging_Ampl_Y);
 	/* DESCRIPTION: Plunging amplitude (m) in x, y, & z directions (RIGID_MOTION only) */
-	AddListOption("PLUNGING_AMPL_Z", nZone, Plunging_Ampl_Z);
+	AddListOption("PLUNGING_AMPL_Z", nPlunging_Ampl_Z, Plunging_Ampl_Z);
 	/* DESCRIPTION:  */
 	AddScalarOption("MOTION_FILENAME", Motion_Filename, string("mesh_motion.dat"));
 	/* DESCRIPTION: Uncoupled Aeroelastic Frequency Plunge. */
@@ -392,20 +395,26 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddEnumOption("TYPE_AEROELASTIC_GRID_MOVEMENT", Aeroelastic_Grid_Movement, Aeroelastic_Movement_Map, "RIGID");
 	/* DESCRIPTION: Type of grid velocities for aeroelastic motion */
 	AddEnumOption("TYPE_AEROELASTIC_GRID_VELOCITY", Aeroelastic_Grid_Velocity, Aeroelastic_Velocity_Map, "FD");
+
+  /*--- Options related to wind gust simulations ---*/
+	/* CONFIG_CATEGORY: Wind Gust */
   
-	/*--- Options related to rotating frame problems ---*/
-	/* CONFIG_CATEGORY: Rotating frame */
-  
-	/* DESCRIPTION: Rotating frame problem */
-	AddSpecialOption("ROTATING_FRAME", Rotating_Frame, SetBoolOption, false);
-	default_vec_3d[0] = 0.0; default_vec_3d[1] = 0.0; default_vec_3d[2] = 0.0;
-	/* DESCRIPTION: Origin of the axis of rotation */
-	AddArrayOption("ROTATIONAL_ORIGIN", 3, RotAxisOrigin, default_vec_3d);
-	default_vec_3d[0] = 0.0; default_vec_3d[1] = 0.0; default_vec_3d[2] = 0.0;
-	/* DESCRIPTION: Angular velocity vector (rad/s) */
-	AddArrayOption("ROTATION_RATE", 3, Omega, default_vec_3d);
-	/*--- Initializing this here because it might be needed in the geometry classes. ---*/
-	Omega_FreeStreamND = new double[3];
+  /* DESCRIPTION: Apply a wind gust */
+	AddSpecialOption("WIND_GUST", Wind_Gust, SetBoolOption, false);
+  /* DESCRIPTION: Type of gust */
+	AddEnumOption("GUST_TYPE", Gust_Type, Gust_Type_Map, "NONE");
+  /* DESCRIPTION: Gust wavelenght (meters) */
+  AddScalarOption("GUST_WAVELENGTH", Gust_WaveLength, 0.0);
+  /* DESCRIPTION: Number of gust periods */
+  AddScalarOption("GUST_PERIODS", Gust_Periods, 1.0);
+  /* DESCRIPTION: Gust amplitude (m/s) */
+  AddScalarOption("GUST_AMPL", Gust_Ampl, 0.0);
+  /* DESCRIPTION: Time at which to begin the gust (sec) */
+  AddScalarOption("GUST_BEGIN_TIME", Gust_Begin_Time, 0.0);
+  /* DESCRIPTION: Location at which the gust begins (meters) */
+  AddScalarOption("GUST_BEGIN_LOC", Gust_Begin_Loc, 0.0);
+  /* DESCRIPTION: Direction of the gust X or Y dir */
+  AddEnumOption("GUST_DIR", Gust_Dir, Gust_Dir_Map, "X_DIR");
   
 	/*--- Options related to convergence ---*/
 	/* CONFIG_CATEGORY: Convergence*/
@@ -466,6 +475,8 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddEnumOption("NUM_METHOD_GRAD", Kind_Gradient_Method, Gradient_Map, "GREEN_GAUSS");
 	/* DESCRIPTION: Coefficient for the limiter */
 	AddScalarOption("LIMITER_COEFF", LimiterCoeff, 0.3);
+  /* DESCRIPTION: Coefficient for detecting the limit of the sharp edges */
+	AddScalarOption("SHARP_EDGES_COEFF", SharpEdgesCoeff, 3.0);
   
 	/* DESCRIPTION: Convective numerical method */
 	AddConvectOption("CONV_NUM_METHOD_FLOW", Kind_ConvNumScheme_Flow, Kind_Centered_Flow, Kind_Upwind_Flow);
@@ -590,7 +601,7 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	/* DESCRIPTION: Adjoint problem boundary condition */
 	AddEnumOption("ADJ_OBJFUNC", Kind_ObjFunc, Objective_Map, "DRAG");
   /* DESCRIPTION: Definition of the airfoil section */
-  default_vec_3d[0] = 0.0; default_vec_3d[1] = 1.0;
+  default_vec_3d[0] = 1E-6; default_vec_3d[1] = 1;
 	AddArrayOption("GEO_SECTION_LIMIT", 2, Section_Limit, default_vec_3d);
 	/* DESCRIPTION: Mode of the GDC code (analysis, or gradient) */
 	AddEnumOption("GEO_MODE", GeometryMode, GeometryMode_Map, "FUNCTION");
@@ -606,8 +617,8 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	AddSpecialOption("FROZEN_VISC", Frozen_Visc, SetBoolOption, true);
 	/* DESCRIPTION:  */
 	AddScalarOption("CTE_VISCOUS_DRAG", CteViscDrag, 0.0);
-	/* DESCRIPTION: Print sensitivities to screen on exit */
-	AddSpecialOption("SHOW_ADJ_SENS", Show_Adj_Sens, SetBoolOption, false);
+	/* DESCRIPTION: Remove sharp edges from the sensitivity evaluation */
+	AddSpecialOption("SENS_REMOVE_SHARP", Sens_Remove_Sharp, SetBoolOption, false);
   
 	/*--- Options related to input/output files and formats ---*/
 	/* CONFIG_CATEGORY: Input/output files and formats */
@@ -885,11 +896,11 @@ void CConfig::SetConfig_Options(unsigned short val_nZone) {
 	/* DESCRIPTION: Coordinates of the box where the grid will be deformed (Xmin, Ymin, Zmin, Xmax, Ymax, Zmax) */
 	AddArrayOption("HOLD_GRID_FIXED_COORD", 6, Hold_GridFixed_Coord, default_vec_6d);
 	/* DESCRIPTION: Grid deformation technique */
-	AddEnumOption("GRID_DEFORM_METHOD", Kind_GridDef_Method, Deform_Map, "SPRING");
+	AddEnumOption("GRID_DEFORM_METHOD", Kind_GridDef_Method, Deform_Map, "FEA");
 	/* DESCRIPTION: Visualize the deformation */
 	AddSpecialOption("VISUALIZE_DEFORMATION", Visualize_Deformation, SetBoolOption, false);
 	/* DESCRIPTION: Number of iterations for FEA mesh deformation (surface deformation increments) */
-	AddScalarOption("GRID_DEFORM_ITER", GridDef_Iter, 1);
+	AddScalarOption("GRID_DEFORM_ITER", GridDef_Iter, 10);
   
 	/*--- option related to rotorcraft problems ---*/
 	/* CONFIG_CATEGORY: Rotorcraft problem */
@@ -964,7 +975,29 @@ void CConfig::SetParsing(char case_filename[200]) {
 
 void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_izone) {
 
+  unsigned short iZone;
+
+#ifdef NO_MPI
+  int size = SINGLE_NODE;
+#else
+  int size = MPI::COMM_WORLD.Get_size();
+#endif
+  
+  /*--- Store the SU2 module that we are executing. ---*/
 	Kind_SU2 = val_software;
+  
+  /*--- Only SU2_DDC, and SU2_CFD work with CGNS ---*/
+  if ((Kind_SU2 != SU2_DDC) && (Kind_SU2 != SU2_CFD) && (Kind_SU2 != SU2_SOL)) {
+    if (Mesh_FileFormat == CGNS) {
+    cout << "This software is not prepared for CGNS, please switch to SU2" << endl;
+    cout << "Press any key to exit..." << endl;
+    cin.get();
+    exit(1);
+    }
+  }
+  
+  /*--- If multiple processors the grid should be always in native .su2 format ---*/
+  if ((size > SINGLE_NODE) && ((Kind_SU2 == SU2_CFD) || (Kind_SU2 == SU2_SOL))) Mesh_FileFormat = SU2;
 
   /*--- Divide grid if runnning SU2_MDC ---*/
   if (Kind_SU2 == SU2_MDC) Divide_Element = true;
@@ -987,177 +1020,399 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 	else
 		Wrt_Unsteady = true;
 
-	/*--- If we're solving a purely steady problem with no prescribed grid
-   movement (both rotating frame and moving walls are steady), make sure that
+  /*--- Set grid movement kind to NO_MOVEMENT if not specified, which means
+   that we also set the Grid_Movement flag to false. We initialize to the 
+   number of zones here, because we are guaranteed to at least have one. ---*/
+  if (Kind_GridMovement == NULL) {
+    Kind_GridMovement = new unsigned short[nZone];
+    for (unsigned short iZone = 0; iZone < nZone; iZone++ )
+      Kind_GridMovement[iZone] = NO_MOVEMENT;
+    if (Grid_Movement == true) {
+      cout << "GRID_MOVEMENT = YES but no type provided in GRID_MOVEMENT_KIND!!" << endl;
+      cout << "Press any key to exit..." << endl;
+      cin.get();
+      exit(1);
+    }
+  }
+  
+  /*--- If we're solving a purely steady problem with no prescribed grid
+   movement (both rotating frame and moving walls can be steady), make sure that
    there is no grid motion ---*/
 	if ((Kind_SU2 == SU2_CFD || Kind_SU2 == SU2_SOL) &&
       (Unsteady_Simulation == STEADY) &&
-      (Kind_GridMovement[ZONE_0] != MOVING_WALL)) // rotating_frame here too soon
+      ((Kind_GridMovement[ZONE_0] != MOVING_WALL) &&
+       (Kind_GridMovement[ZONE_0] != ROTATING_FRAME)))
 		Grid_Movement = false;
-
+  
 	/*--- If it is not specified, set the mesh motion mach number
    equal to the freestream value. ---*/
-	if ((Rotating_Frame || Grid_Movement) && Mach_Motion == 0.0)
+	if (Grid_Movement && Mach_Motion == 0.0)
 		Mach_Motion = Mach;
+  
+  /*--- Set the boolean flag if we are in a rotating frame (source term). ---*/
+	if (Grid_Movement && Kind_GridMovement[ZONE_0] == ROTATING_FRAME)
+		Rotating_Frame = true;
+  else
+    Rotating_Frame = false;
+  
+  /*--- Check the number of moving markers against the number of grid movement
+   types provided (should be equal, except that rigid motion and rotating frame
+   do not depend on surface specification). ---*/
+  if (Grid_Movement && (Kind_GridMovement[ZONE_0] != RIGID_MOTION) &&
+      (Kind_GridMovement[ZONE_0] != ROTATING_FRAME) &&
+      (nGridMovement != nMarker_Moving)) {
+    cout << "Number of GRID_MOVEMENT_KIND must match number of MARKER_MOVING!!" << endl;
+    cout << "Press any key to exit..." << endl;
+    cin.get();
+    exit(1);
+  }
+  
+  /*--- Make sure that there aren't more than one rigid motion or 
+   rotating frame specified in GRID_MOVEMENT_KIND. This means that sliding
+   mesh simulations are currently disabled. ---*/
+  if (Grid_Movement && (Kind_GridMovement[ZONE_0] == RIGID_MOTION) &&
+      (nGridMovement > 1)) {
+    cout << "Can not support more than one type of rigid motion in GRID_MOVEMENT_KIND!!" << endl;
+    cout << "Press any key to exit..." << endl;
+    cin.get();
+    exit(1);
+  }
+  if (Grid_Movement && (Kind_GridMovement[ZONE_0] == ROTATING_FRAME) &&
+      (nGridMovement > 1)) {
+    cout << "Can not support more than one rotating frame in GRID_MOVEMENT_KIND!!" << endl;
+    cout << "Press any key to exit..." << endl;
+    cin.get();
+    exit(1);
+  }
+  
+	/*--- In case the grid movement parameters have not been declared in the
+   config file, set them equal to zero for safety. Also check to make sure
+   that for each option, a value has been declared for each moving marker. ---*/
 
-	/*--- In case rigid-motion parameters have not been declared in the config file, set them equal to zero. ---*/
-	if (Grid_Movement) {
-
-		unsigned short iZone;
-
+  unsigned short nMoving;
+  if (nGridMovement > nZone) nMoving = nGridMovement;
+  else nMoving = nZone;
+  
 		/*--- Motion Origin: ---*/
 		if (Motion_Origin_X == NULL) {
-			Motion_Origin_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Motion_Origin_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Motion_Origin_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nMotion_Origin_X != nGridMovement)) {
+        cout << "Length of MOTION_ORIGIN_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Motion_Origin_Y == NULL) {
-			Motion_Origin_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Motion_Origin_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Motion_Origin_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nMotion_Origin_Y != nGridMovement)) {
+        cout << "Length of MOTION_ORIGIN_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Motion_Origin_Z == NULL) {
-			Motion_Origin_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Motion_Origin_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Motion_Origin_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nMotion_Origin_Z != nGridMovement)) {
+        cout << "Length of MOTION_ORIGIN_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Translation: ---*/
 		if (Translation_Rate_X == NULL) {
-			Translation_Rate_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Translation_Rate_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Translation_Rate_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nTranslation_Rate_X != nGridMovement)) {
+        cout << "Length of TRANSLATION_RATE_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Translation_Rate_Y == NULL) {
-			Translation_Rate_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Translation_Rate_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Translation_Rate_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nTranslation_Rate_Y != nGridMovement)) {
+        cout << "Length of TRANSLATION_RATE_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Translation_Rate_Z == NULL) {
-			Translation_Rate_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Translation_Rate_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Translation_Rate_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nTranslation_Rate_Z != nGridMovement)) {
+        cout << "Length of TRANSLATION_RATE_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Rotation: ---*/
 		if (Rotation_Rate_X == NULL) {
-			Rotation_Rate_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Rotation_Rate_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Rotation_Rate_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nRotation_Rate_X != nGridMovement)) {
+        cout << "Length of ROTATION_RATE_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Rotation_Rate_Y == NULL) {
-			Rotation_Rate_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Rotation_Rate_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Rotation_Rate_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nRotation_Rate_Y != nGridMovement)) {
+        cout << "Length of ROTATION_RATE_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Rotation_Rate_Z == NULL) {
-			Rotation_Rate_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Rotation_Rate_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Rotation_Rate_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nRotation_Rate_Z != nGridMovement)) {
+        cout << "Length of ROTATION_RATE_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Pitching: ---*/
 		if (Pitching_Omega_X == NULL) {
-			Pitching_Omega_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Omega_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Omega_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Omega_X != nGridMovement)) {
+        cout << "Length of PITCHING_OMEGA_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Omega_Y == NULL) {
-			Pitching_Omega_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Omega_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Omega_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Omega_Y != nGridMovement)) {
+        cout << "Length of PITCHING_OMEGA_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Omega_Z == NULL) {
-			Pitching_Omega_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Omega_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Omega_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Omega_Z != nGridMovement)) {
+        cout << "Length of PITCHING_OMEGA_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Pitching Amplitude: ---*/
 		if (Pitching_Ampl_X == NULL) {
-			Pitching_Ampl_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Ampl_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Ampl_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Ampl_X != nGridMovement)) {
+        cout << "Length of PITCHING_AMPL_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Ampl_Y == NULL) {
-			Pitching_Ampl_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Ampl_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Ampl_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Ampl_Y != nGridMovement)) {
+        cout << "Length of PITCHING_AMPL_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Ampl_Z == NULL) {
-			Pitching_Ampl_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Ampl_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Ampl_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Ampl_Z != nGridMovement)) {
+        cout << "Length of PITCHING_AMPL_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Pitching Phase: ---*/
 		if (Pitching_Phase_X == NULL) {
-			Pitching_Phase_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Phase_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Phase_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Phase_X != nGridMovement)) {
+        cout << "Length of PITCHING_PHASE_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Phase_Y == NULL) {
-			Pitching_Phase_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Phase_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Phase_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Phase_Y != nGridMovement)) {
+        cout << "Length of PITCHING_PHASE_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Pitching_Phase_Z == NULL) {
-			Pitching_Phase_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Pitching_Phase_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Pitching_Phase_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPitching_Phase_Z != nGridMovement)) {
+        cout << "Length of PITCHING_PHASE_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Plunging: ---*/
 		if (Plunging_Omega_X == NULL) {
-			Plunging_Omega_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Omega_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Omega_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Omega_X != nGridMovement)) {
+        cout << "Length of PLUNGING_OMEGA_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Plunging_Omega_Y == NULL) {
-			Plunging_Omega_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Omega_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Omega_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Omega_Y != nGridMovement)) {
+        cout << "Length of PLUNGING_OMEGA_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Plunging_Omega_Z == NULL) {
-			Plunging_Omega_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Omega_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Omega_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Omega_Z != nGridMovement)) {
+        cout << "Length of PLUNGING_OMEGA_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		/*--- Plunging Amplitude: ---*/
 		if (Plunging_Ampl_X == NULL) {
-			Plunging_Ampl_X = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Ampl_X = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Ampl_X[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Ampl_X != nGridMovement)) {
+        cout << "Length of PLUNGING_AMPL_X must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Plunging_Ampl_Y == NULL) {
-			Plunging_Ampl_Y = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Ampl_Y = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Ampl_Y[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Ampl_Y != nGridMovement)) {
+        cout << "Length of PLUNGING_AMPL_Y must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
 		if (Plunging_Ampl_Z == NULL) {
-			Plunging_Ampl_Z = new double[nZone];
-			for (iZone = 0; iZone < nZone; iZone++ )
+			Plunging_Ampl_Z = new double[nMoving];
+			for (iZone = 0; iZone < nMoving; iZone++ )
 				Plunging_Ampl_Z[iZone] = 0.0;
-		}
+		} else {
+      if (Grid_Movement && (nPlunging_Ampl_Z != nGridMovement)) {
+        cout << "Length of PLUNGING_AMPL_Z must match GRID_MOVEMENT_KIND!!" << endl;
+        cout << "Press any key to exit..." << endl;
+        cin.get();
+        exit(1);
+      }
+    }
 
-	}
 
 	/*--- Use the various rigid-motion input frequencies to determine the period to be used with time-spectral cases.
 		  There are THREE types of motion to consider, namely: rotation, pitching, and plunging.
@@ -1212,18 +1467,20 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 		}
 	}
 
+  /*--- Fluid-Structure problems always have grid movement ---*/
+	if (Kind_Solver == FLUID_STRUCTURE_EULER ||
+      Kind_Solver == FLUID_STRUCTURE_NAVIER_STOKES) {
+		if (Kind_Turb_Model == SA || Kind_Turb_Model == SST)
+			Kind_Solver = FLUID_STRUCTURE_RANS;
+		Grid_Movement = true;
+	}
+  
 	/*--- Set a flag for sliding interfaces so that a search
    and interpolation is performed after each time step. ---*/
 	if (nMarker_Sliding > 0)
 		Relative_Motion = true;
 	else
 		Relative_Motion = false;
-
-	if (Kind_Solver == FLUID_STRUCTURE_EULER || Kind_Solver == FLUID_STRUCTURE_NAVIER_STOKES) {
-		if (Kind_Turb_Model == SA || Kind_Turb_Model == SST)
-			Kind_Solver = FLUID_STRUCTURE_RANS;
-		Grid_Movement = true;
-	}
 
 	if (FullMG) FinestMesh = nMultiLevel;
 	else FinestMesh = MESH_0;
@@ -2346,13 +2603,6 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 
 	}
 
-
-	/*--- Some discrete adjoint requirements ---*/
-	if ((GetAdjoint() && (GetKind_Adjoint() == DISCRETE)) && (Kind_Solver==ADJ_EULER||ADJ_NAVIER_STOKES||ADJ_RANS)) {
-		SetnExtIter(1);
-		SetMGLevels(0);
-	}
-
 	delete [] tmp_smooth;
 
 
@@ -2738,15 +2988,19 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			cout <<"The lower integration limit is "<<EA_IntLimit[0]<<", and the upper is "<<EA_IntLimit[1]<<"."<<endl;
 			cout <<"The near-field is situated at "<<EA_IntLimit[2]<<"."<<endl;
 		}
-
+    
 		if (Grid_Movement) {
-			cout << "Performing a dynamic mesh simulation." << endl;
-		}
-
-		if (Rotating_Frame) {
-			cout << "Performing a simulation in a rotating frame." << endl;
-			cout << "Origin of the rotation axis: " << RotAxisOrigin[0] <<","<< RotAxisOrigin[1] <<","<< RotAxisOrigin[2] << ". ";
-			cout << "Angular velocity vector: " << Omega[0] <<","<< Omega[1] <<","<< Omega[2] << "." << endl;
+			cout << "Performing a dynamic mesh simulation: ";
+      switch (Kind_GridMovement[ZONE_0]) {
+        case NO_MOVEMENT:     cout << "no movement." << endl; break;
+        case DEFORMING:       cout << "deforming mesh motion." << endl; break;
+        case RIGID_MOTION:    cout << "rigid mesh motion." << endl; break;
+        case MOVING_WALL:     cout << "moving walls." << endl; break;
+        case ROTATING_FRAME:  cout << "rotating reference frame." << endl; break;
+        case AEROELASTIC:     cout << "aeroelastic motion." << endl; break;
+        case FLUID_STRUCTURE: cout << "fluid-structure motion." << endl; break;
+        case EXTERNAL:        cout << "externally prescribed motion." << endl; break;
+      }
 		}
 
 		if (Restart) {
@@ -3093,6 +3347,7 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 				cout << "JST viscous coefficients (1st, 2nd, & 4th): " << Kappa_1st_AdjFlow
 						<< ", " << Kappa_2nd_AdjFlow << ", " << Kappa_4th_AdjFlow <<"."<< endl;
 				cout << "The method includes a grid stretching correction (p = 0.3)."<< endl;
+        cout << "The reference sharp edge distance is: " << SharpEdgesCoeff*RefElemLength*LimiterCoeff <<". "<< endl;
 			}
 			if ((Kind_ConvNumScheme_AdjFlow == SPACE_CENTERED) && (Kind_Centered_AdjFlow == LAX))
 				cout << "Lax-Friedrich scheme for the adjoint inviscid terms."<< endl;
@@ -3100,9 +3355,17 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 				cout << "1st order Roe solver for the adjoint inviscid terms."<< endl;
 			if ((Kind_ConvNumScheme_AdjFlow == SPACE_UPWIND) && (Kind_Upwind_AdjFlow == ROE_2ND)) {
 				cout << "2nd order Roe solver for the adjoint inviscid terms."<< endl;
-				switch (Kind_SlopeLimit_Flow) {
+				switch (Kind_SlopeLimit_AdjFlow) {
 				case NONE: cout << "Without slope-limiting method." << endl; break;
-				case VENKATAKRISHNAN: cout << "Venkatakrishnan slope-limiting method." << endl; break;
+				case VENKATAKRISHNAN:
+            cout << "Venkatakrishnan slope-limiting method, with constant: " << LimiterCoeff <<". "<< endl;
+            cout << "The reference element size is: " << RefElemLength <<". "<< endl;
+            break;
+        case SHARP_EDGES:
+            cout << "Sharp edges slope-limiting method, with constant: " << LimiterCoeff <<". "<< endl;
+            cout << "The reference element size is: " << RefElemLength <<". "<< endl;
+            cout << "The reference sharp edge distance is: " << SharpEdgesCoeff*RefElemLength*LimiterCoeff <<". "<< endl;
+            break;
 				}
 			}
 		}
@@ -4311,8 +4574,11 @@ CConfig::~CConfig(void)
 		delete[] Aeroelastic_n1;
 	}
 
-	/*--- Free memory for unspecified Rigid Motion parameters ---*/
+	/*--- Free memory for unspecified grid motion parameters ---*/
 
+  if (Kind_GridMovement != NULL)
+    delete [] Kind_GridMovement;
+  
 	/*--- motion origin: ---*/
 	if (Motion_Origin_X != NULL)
 		delete [] Motion_Origin_X;
@@ -4420,11 +4686,82 @@ void CConfig::SetFileNameDomain(unsigned short val_domain) {
 		/*--- Mesh files ---*/	
 		sprintf (buffer, "_%d.su2", int(val_domain));
 		old_name = Mesh_FileName;
-		old_name.erase (old_name.end()-4, old_name.end());
+    unsigned short lastindex = old_name.find_last_of(".");
+    old_name = old_name.substr(0, lastindex);
 		Mesh_FileName = old_name + buffer;
 
 	}
 #endif
+}
+
+string CConfig::GetUnsteady_FileName(string val_filename, int val_iter) {
+  
+  string UnstExt, UnstFilename = val_filename;
+  char buffer[50];
+  
+  /*--- Check that a positive value iteration is requested (for now). ---*/
+  if (val_iter < 0) {
+    cout << "Requesting a negative iteration number for the restart file!!" << endl;
+    cout << "Press any key to exit..." << endl;
+    cin.get(); exit(1);
+  }
+  
+  /*--- Append iteration number for unsteady cases ---*/
+  if ((Wrt_Unsteady) || (Unsteady_Simulation == TIME_SPECTRAL)) {
+    unsigned short lastindex = UnstFilename.find_last_of(".");
+    UnstFilename = UnstFilename.substr(0, lastindex);
+    if ((val_iter >= 0)    && (val_iter < 10))    sprintf (buffer, "_0000%d.dat", val_iter);
+    if ((val_iter >= 10)   && (val_iter < 100))   sprintf (buffer, "_000%d.dat",  val_iter);
+    if ((val_iter >= 100)  && (val_iter < 1000))  sprintf (buffer, "_00%d.dat",   val_iter);
+    if ((val_iter >= 1000) && (val_iter < 10000)) sprintf (buffer, "_0%d.dat",    val_iter);
+    if (val_iter >= 10000) sprintf (buffer, "_%d.dat", val_iter);
+    string UnstExt = string(buffer);
+    UnstFilename.append(UnstExt);
+  }
+  
+  return UnstFilename;
+}
+
+string CConfig::GetObjFunc_Extension(string val_filename) {
+  
+  string AdjExt, Filename = val_filename;
+  
+  if (Adjoint) {
+    
+    /*--- Remove filename extension (.dat) ---*/
+    unsigned short lastindex = Filename.find_last_of(".");
+    Filename = Filename.substr(0, lastindex);
+    
+    switch (Kind_ObjFunc) {
+      case DRAG_COEFFICIENT:      AdjExt = "_cd";   break;
+      case LIFT_COEFFICIENT:      AdjExt = "_cl";   break;
+      case SIDEFORCE_COEFFICIENT: AdjExt = "_csf";  break;
+      case PRESSURE_COEFFICIENT:  AdjExt = "_cp";   break;
+      case MOMENT_X_COEFFICIENT:  AdjExt = "_cmx";  break;
+      case MOMENT_Y_COEFFICIENT:  AdjExt = "_cmy";  break;
+      case MOMENT_Z_COEFFICIENT:  AdjExt = "_cmz";  break;
+      case EFFICIENCY:            AdjExt = "_eff";  break;
+      case EQUIVALENT_AREA:       AdjExt = "_ea";   break;
+      case NEARFIELD_PRESSURE:    AdjExt = "_nfp";  break;
+      case FORCE_X_COEFFICIENT:   AdjExt = "_cfx";  break;
+      case FORCE_Y_COEFFICIENT:   AdjExt = "_cfy";  break;
+      case FORCE_Z_COEFFICIENT:   AdjExt = "_cfz";  break;
+      case THRUST_COEFFICIENT:    AdjExt = "_ct";   break;
+      case TORQUE_COEFFICIENT:    AdjExt = "_cq";   break;
+      case HEAT_LOAD:             AdjExt = "_Q";    break;
+      case MAX_HEAT_FLUX:         AdjExt = "_qmax"; break;
+      case FIGURE_OF_MERIT:       AdjExt = "_merit";break;
+      case FREE_SURFACE:          AdjExt = "_fs";   break;
+      case NOISE:                 AdjExt = "_fwh";  break;
+    }
+    Filename.append(AdjExt);
+    
+    /*--- Lastly, add the .dat extension ---*/
+    Filename.append(".dat");
+    
+  }
+  
+  return Filename;
 }
 
 unsigned short CConfig::GetContainerPosition(unsigned short val_eqsystem) {
@@ -5047,6 +5384,16 @@ unsigned short CConfig::GetSlideBound_Zone(string val_marker) {
 	return SlideBound_Zone[iMarker_SlideBound];
 }
 
+unsigned short CConfig::GetMarker_Moving(string val_marker) {
+	unsigned short iMarker_Moving;
+  
+	/*--- Find the marker for this moving boundary. ---*/
+	for (iMarker_Moving = 0; iMarker_Moving < nMarker_Moving; iMarker_Moving++)
+		if (Marker_Moving[iMarker_Moving] == val_marker) break;
+  
+	return iMarker_Moving;
+}
+
 double CConfig::GetDirichlet_Value(string val_marker) {
 	unsigned short iMarker_Dirichlet;
 	for (iMarker_Dirichlet = 0; iMarker_Dirichlet < nMarker_Dirichlet_Elec; iMarker_Dirichlet++)
@@ -5347,7 +5694,7 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
       
 			/*--- First, check if there is mesh motion. If yes, use the Mach
        number relative to the body to initialize the flow. ---*/
-			if (Rotating_Frame || Grid_Movement)
+			if (Grid_Movement)
 				Velocity_Reynolds = Mach_Motion*Mach2Vel_FreeStream;
 			else
 				Velocity_Reynolds = ModVel_FreeStream;
@@ -5426,14 +5773,6 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
   
 	Gas_ConstantND = Gas_Constant/Gas_Constant_Ref;
   
-	/*--- Perform non-dim. for rotating terms ---*/
-	Omega_Mag = 0.0;
-	for (iDim = 0; iDim < 3; iDim++) {
-		Omega_FreeStreamND[iDim] = Omega[iDim]/Omega_Ref;
-		Omega_Mag += Omega[iDim]*Omega[iDim];
-	}
-	Omega_Mag = sqrt(Omega_Mag)/Omega_Ref;
-  
 	ModVel_FreeStreamND = 0;
 	for (iDim = 0; iDim < val_nDim; iDim++)
 		ModVel_FreeStreamND += Velocity_FreeStreamND[iDim]*Velocity_FreeStreamND[iDim];
@@ -5492,24 +5831,20 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
 		cout << "Freestream density (kg/m^3): "					 << Density_FreeStream << endl;
 		if (val_nDim == 2) {
 			cout << "Freestream velocity (m/s): (" << Velocity_FreeStream[0] << ",";
-			cout << Velocity_FreeStream[1] << ")";
+			cout << Velocity_FreeStream[1] << ")" << endl;
 		} else if (val_nDim == 3) {
 			cout << "Freestream velocity (m/s): (" << Velocity_FreeStream[0] << ",";
-			cout << Velocity_FreeStream[1] << "," << Velocity_FreeStream[2] << ")";
+			cout << Velocity_FreeStream[1] << "," << Velocity_FreeStream[2] << ")" << endl;
 		}
     
-		cout << " -> Modulus: "					 << ModVel_FreeStream << endl;
+		cout << "Freestream velocity magnitude (m/s):"	<< ModVel_FreeStream << endl;
     
 		if (Compressible)
 			cout << "Freestream energy (kg.m/s^2): "					 << Energy_FreeStream << endl;
     
 		if (Viscous)
 			cout << "Freestream viscosity (N.s/m^2): "				 << Viscosity_FreeStream << endl;
-    
-		if (Rotating_Frame) {
-			cout << "Freestream rotation (rad/s): (" << Omega[0];
-			cout << "," << Omega[1] << "," << Omega[2] << ")" << endl;
-		}
+
 		if (Unsteady) {
 			cout << "Total time (s): " << Total_UnstTime << ". Time step (s): " << Delta_UnstTime << endl;
 		}
@@ -5553,12 +5888,12 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
 		cout << "Freestream density (non-dimensional): "      << Density_FreeStreamND     << endl;
 		if (val_nDim == 2) {
 			cout << "Freestream velocity (non-dimensional): (" << Velocity_FreeStreamND[0] << ",";
-			cout << Velocity_FreeStreamND[1] << ")";
+			cout << Velocity_FreeStreamND[1] << ")" << endl;
 		} else if (val_nDim == 3) {
 			cout << "Freestream velocity (non-dimensional): (" << Velocity_FreeStreamND[0] << ",";
-			cout << Velocity_FreeStreamND[1] << "," << Velocity_FreeStreamND[2] << ")";
+			cout << Velocity_FreeStreamND[1] << "," << Velocity_FreeStreamND[2] << ")" << endl;
 		}
-		cout << " -> Modulus: "					 << ModVel_FreeStreamND << endl;
+		cout << "Freestream velocity magnitude (non-dimensional): "	 << ModVel_FreeStreamND << endl;
     
 		if (turbulent){
 			cout << "Free-stream turb. kinetic energy (non-dimensional): " << kine_Inf << endl;
@@ -5570,16 +5905,12 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
     
 		if (Viscous)
 			cout << "Freestream viscosity (non-dimensional): " << Viscosity_FreeStreamND << endl;
-    
-		if (Rotating_Frame) {
-			cout << "Freestream rotation (non-dimensional): (" << Omega_FreeStreamND[0];
-			cout << "," << Omega_FreeStreamND[1] << "," << Omega_FreeStreamND[2] << ")" << endl;
-		}
+
 		if (Unsteady) {
 			cout << "Total time (non-dimensional): "				 << Total_UnstTimeND << endl;
 			cout << "Time step (non-dimensional): "				 << Delta_UnstTimeND << endl;
 		}
-		if (Mach <= 0.0) cout << "Force coefficients computed using reference values." << endl;
+		if (Grid_Movement) cout << "Force coefficients computed using MACH_MOTION." << endl;
 		else cout << "Force coefficients computed using freestream values." << endl;
 	}
   

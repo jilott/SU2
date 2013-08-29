@@ -52,7 +52,7 @@ inline void CSolver::SetFEA_Load(CSolver ***flow_solution, CGeometry **fea_geome
 
 inline void CSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_container, CConfig *config, unsigned long ExtIter) { }
 
-inline void CSolver::GetRestart(CGeometry *geometry, CConfig *config, unsigned short val_iZone) { }
+inline void CSolver::GetRestart(CGeometry *geometry, CConfig *config, int val_iter) { }
   
 inline void CSolver::SetNoise_Source(CSolver ***flow_solution, CGeometry **wave_geometry, CConfig *wave_config) { }
 
@@ -106,6 +106,8 @@ inline double CSolver::GetCEff_Inv(unsigned short val_marker) { return 0; }
 
 inline double CSolver::GetCLift_Visc(unsigned short val_marker) { return 0; }
 
+inline double CSolver::GetCSideForce_Visc(unsigned short val_marker) { return 0; }
+
 inline double CSolver::GetCDrag_Visc(unsigned short val_marker) { return 0; }
 
 inline double CSolver::GetAllBound_CLift_Inv() { return 0; }
@@ -117,6 +119,8 @@ inline double CSolver::GetAllBound_CSideForce_Inv() { return 0; }
 inline double CSolver::GetAllBound_CEff_Inv() { return 0; }
 
 inline double CSolver::GetAllBound_CLift_Visc() { return 0; }
+
+inline double CSolver::GetAllBound_CSideForce_Visc() { return 0; }
 
 inline double CSolver::GetAllBound_CDrag_Visc() { return 0; }
 
@@ -227,9 +231,6 @@ inline void CSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 									   
 inline void CSolver::Source_Template(CGeometry *geometry, CSolver **solver_container, 
 												  CNumerics *numerics, CConfig *config, unsigned short iMesh) { }
-												  
-inline void CSolver::SourceConserv_Residual(CGeometry *geometry, CSolver **solver_container, 
-											   CNumerics *numerics, CConfig *config, unsigned short iMesh) { }
 
 inline void CSolver::Charge_Dist_SourceTerm(CGeometry *geometry, CSolver **solver_container, 
 											  CNumerics *numerics, CConfig *config, unsigned short iMesh) { }
@@ -405,8 +406,6 @@ inline void CSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solv
 inline void CSolver::Solve_LinearSystem(CGeometry *geometry, CSolver **solver_container, CConfig *config, 
 										  unsigned short iMesh) { }
 
-inline void CSolver::Solve_LinearSystem(CGeometry *geometry, CSolver **solver_container, CConfig *config) { }
-
 inline void CSolver::Compute_Residual(CGeometry *geometry, CSolver **solver_container, CConfig *config, 
 										unsigned short iMesh) { }
 
@@ -567,9 +566,13 @@ inline double CNSSolver::GetViscosity_Inf(void) { return Viscosity_Inf; }
 
 inline double CNSSolver::GetCLift_Visc(unsigned short val_marker) { return CLift_Visc[val_marker]; }
 
+inline double CNSSolver::GetCSideForce_Visc(unsigned short val_marker) { return CSideForce_Visc[val_marker]; }
+
 inline double CNSSolver::GetCDrag_Visc(unsigned short val_marker) { return CDrag_Visc[val_marker]; }
 
 inline double CNSSolver::GetAllBound_CLift_Visc() { return AllBound_CLift_Visc; }
+
+inline double CNSSolver::GetAllBound_CSideForce_Visc() { return AllBound_CSideForce_Visc; }
 
 inline double CNSSolver::GetAllBound_CDrag_Visc() { return AllBound_CDrag_Visc; }
 

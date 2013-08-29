@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdlib>
 #include <algorithm>
 
 using namespace std;
@@ -136,6 +137,7 @@ const unsigned int MAX_COMM_LEVEL = 1000;	/*!< \brief Maximum number of communic
 const unsigned int MAX_NUMBER_PERIODIC = 10;	/*!< \brief Maximum number of periodic boundary conditions. */
 const unsigned int MAX_NUMBER_SLIDING  = 10;	/*!< \brief Maximum number of sliding boundary conditions. */
 const int MASTER_NODE = 0;			/*!< \brief Master node for MPI parallelization. */
+const int SINGLE_NODE = 1;			/*!< \brief There is only a node in the MPI parallelization. */
 const int AUX_NODE = 1;			/*!< \brief Computational node that is used for IO stuff. */
 
 /** General output & CGNS defines **/
@@ -359,7 +361,9 @@ enum ENUM_GRIDMOVEMENT {
 	EXTERNAL = 4,  /*!< \brief Arbitrary grid motion specified by external files at each time step. */
 	EXTERNAL_ROTATION = 5,  /*!< \brief Arbitrary grid motion specified by external files at each time step with rigid rotation. */
   AEROELASTIC = 6,    /*!< \brief Simulation with aeroelastic motion. */
-  MOVING_WALL = 7    /*!< \brief Simulation with moving walls (translation/rotation). */
+  MOVING_WALL = 7,    /*!< \brief Simulation with moving walls (translation/rotation). */
+  ROTATING_FRAME = 8    /*!< \brief Simulation in a rotating frame. */
+
 };
 static const map<string, ENUM_GRIDMOVEMENT> GridMovement_Map = CCreateMap<string, ENUM_GRIDMOVEMENT>
 ("NONE", NO_MOVEMENT)       
@@ -369,6 +373,7 @@ static const map<string, ENUM_GRIDMOVEMENT> GridMovement_Map = CCreateMap<string
 ("EXTERNAL", EXTERNAL)
 ("EXTERNAL_ROTATION", EXTERNAL_ROTATION)
 ("AEROELASTIC", AEROELASTIC)
+("ROTATING_FRAME", ROTATING_FRAME)
 ("MOVING_WALL", MOVING_WALL);
 
 /*!
@@ -392,6 +397,30 @@ enum ENUM_AEROELASTIC_GRIDVELOCITY {
 static const map<string, ENUM_AEROELASTIC_GRIDVELOCITY> Aeroelastic_Velocity_Map = CCreateMap<string, ENUM_AEROELASTIC_GRIDVELOCITY>
 ("FD", FD)
 ("ANALYTIC", ANALYTIC);
+
+/*!
+ * \brief type of wind gusts
+ */
+enum ENUM_GUST_TYPE {
+    NO_GUST = 0,        /*!< \brief _______. */
+	TOP_HAT = 1, 		/*!< \brief Top-hat function shaped gust  */
+	SINE = 2,  		/*!< \brief  Sine shaped gust */
+};
+static const map<string, ENUM_GUST_TYPE> Gust_Type_Map = CCreateMap<string, ENUM_GUST_TYPE>
+("NONE", NO_GUST)
+("TOP_HAT", TOP_HAT)
+("SINE", SINE);
+
+/*!
+ * \brief type of wind direction
+ */
+enum ENUM_GUST_DIR {
+    X_DIR = 0,        /*!< \brief _______. */
+	Y_DIR = 1, 		 /*!< \brief _______. */
+};
+static const map<string, ENUM_GUST_DIR> Gust_Dir_Map = CCreateMap<string, ENUM_GUST_DIR>
+("X_DIR", X_DIR)
+("Y_DIR", Y_DIR);
 
 /*!
  * \brief types of centered spatial discretizations
@@ -450,14 +479,16 @@ static const map<string, ENUM_UPWIND> Upwind_Map = CCreateMap<string, ENUM_UPWIN
  * \brief types of slope limiters
  */
 enum ENUM_LIMITER {
-	NO_LIMITER = 0,               /*!< \brief No slope limiter */
-	VENKATAKRISHNAN = 1,		/*!< \brief Slope limiter using Venkatakrisnan method. */
-  MINMOD = 2 /*!< \brief Slope limiter using minmod method. */
+	NO_LIMITER = 0,       /*!< \brief No slope limiter */
+	VENKATAKRISHNAN = 1,	/*!< \brief Slope limiter using Venkatakrisnan method. */
+  MINMOD = 2,           /*!< \brief Slope limiter using minmod method. */
+  SHARP_EDGES = 3       /*!< \brief Slope limiter using sharp edges. */
 };
 static const map<string, ENUM_LIMITER> Limiter_Map = CCreateMap<string, ENUM_LIMITER>
 ("NONE", NO_LIMITER)
 ("VENKATAKRISHNAN", VENKATAKRISHNAN)
-("MINMOD", MINMOD);
+("MINMOD", MINMOD)
+("SHARP_EDGES", SHARP_EDGES);
 
 /*!
  * \brief types of viscous term discretizations

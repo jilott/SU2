@@ -28,6 +28,7 @@
 #include <mpi.h>
 #endif
 #include <iostream>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -52,9 +53,6 @@ private:
 	unsigned short Kind_SU2; /*!< \brief Kind of SU2 software component. */
 	unsigned short nZone; /*!< \brief Number of zones in the mesh. */
 	double OrderMagResidual; /*!< \brief Order of magnitude reduction. */
-	double *RotAxisOrigin,	 /*!< \brief Axis of rotation (origin) for rotational frame problem. */
-	*Omega,						/*!< \brief Angular velocity vector for rotational frame problem. */
-	Omega_Mag;						/*!< \brief Angular velocity magnitude for rotational frame problem. */
 	double MinLogResidual; /*!< \brief Minimum value of the log residual. */
 	double* EA_IntLimit; /*!< \brief Integration limits of the Equivalent Area computation */
   double AdjointLimit; /*!< \brief Adjoint variable limit */
@@ -66,6 +64,7 @@ private:
 	OneShot,				/*!< \brief Flag to know if the code is solving a one shot problem. */
 	Linearized,				/*!< \brief Flag to know if the code is solving a linearized problem. */
 	Grid_Movement,			/*!< \brief Flag to know if there is grid movement. */
+    Wind_Gust,              /*!< \brief Flag to know if there is a wind gust. */
 	Rotating_Frame,			/*!< \brief Flag to know if there is a rotating frame. */
 	FreeSurface,            /*!< \brief Flag to know if we are solving a freesurface problem. */
 	Incompressible,			/*!< \brief Flag to know if we are using the incompressible formulation. */
@@ -86,9 +85,9 @@ private:
 	Divide_Element,			/*!< \brief Divide rectables and hexahedrom. */
 	Engine_Intake,			/*!< \brief Engine intake subsonic region. */
 	Frozen_Visc,			/*!< \brief Flag for adjoint problem with/without frozen viscosity. */
+	Sens_Remove_Sharp,			/*!< \brief Flag for removing or not the sharp edges from the sensitivity computation. */
 	Hold_GridFixed,	/*!< \brief Flag hold fixed some part of the mesh during the deformation. */
-	Axisymmetric, /*!< \brief Flag for axisymmetric calculations */
-	Show_Adj_Sens; /*!< \brief Flag for outputting sensitivities on exit */
+	Axisymmetric; /*!< \brief Flag for outputting sensitivities on exit */
 	bool Visualize_Partition;	/*!< \brief Flag to visualize each partition in the DDM. */
 	bool Visualize_Deformation;	/*!< \brief Flag to visualize the deformation in the MDC. */
     double Damp_Nacelle_Inflow;	/*!< \brief Damping factor for the engine inlet. */
@@ -101,6 +100,7 @@ private:
 	double CteViscDrag;		/*!< \brief Constant value of the viscous drag. */
 	double *DV_Value;		/*!< \brief Previous value of the design variable. */
 	double LimiterCoeff;				/*!< \brief Limiter coefficient */ 
+	double SharpEdgesCoeff;				/*!< \brief Coefficient to identify the limit of a sharp edge. */
 	unsigned short Kind_Adjoint;	/*!< \brief Kind of adjoint function. */
 	unsigned short Kind_ObjFunc;	/*!< \brief Kind of objective function. */
 	unsigned short Kind_SensSmooth;	/*!< \brief Kind of sensitivity smoothing technique. */
@@ -217,6 +217,7 @@ private:
 	unsigned long ExtIter;			/*!< \brief Current external iteration number. */
 	unsigned long IntIter;			/*!< \brief Current internal iteration number. */
 	unsigned long Unst_nIntIter;			/*!< \brief Number of internal iterations (Dual time Method). */
+  long Unst_RestartIter;			/*!< \brief Iteration number to restart an unsteady simulation (Dual time Method). */
 	unsigned short nRKStep;			/*!< \brief Number of steps of the explicit Runge-Kutta method. */
 	double *RK_Alpha_Step;			/*!< \brief Runge-Kutta beta coefficients. */
 	unsigned short nMultiLevel;		/*!< \brief Number of multigrid levels (coarse levels). */
@@ -234,6 +235,7 @@ private:
 	double MaxDimension;			/*!< \brief Maximum dimension of the aglomerated element compared with the whole domain. */
 	bool AddIndNeighbor;			/*!< \brief Include indirect neighbor in the agglomeration process. */
 	unsigned short nDV;		/*!< \brief Number of design variables. */
+  unsigned short nGridMovement;		/*!< \brief Number of grid movement types specified. */
 	unsigned short nParamDV;		/*!< \brief Number of parameters of the design variable. */
 	double **ParamDV;				/*!< \brief Parameters of the design variable. */
 	unsigned short GeometryMode;			/*!< \brief Gemoetry mode (analysis or gradient computation). */
@@ -537,7 +539,6 @@ private:
 	Temperature_FreeStreamND,  /*!< \brief Farfield temperature value (external flow). */
 	Density_FreeStreamND,      /*!< \brief Farfield density value (external flow). */
 	*Velocity_FreeStreamND,    /*!< \brief Farfield velocity values (external flow). */
-	*Omega_FreeStreamND,       /*!< \brief Farfield angular velocity values (external flow). */
 	Energy_FreeStreamND,       /*!< \brief Farfield energy value (external flow). */
 	Viscosity_FreeStreamND;    /*!< \brief Farfield viscosity value (external flow). */
 	int ***Reactions;					/*!< \brief Reaction map for chemically reacting, multi-species flows. */
@@ -577,16 +578,47 @@ private:
 	*Plunging_Ampl_X,           /*!< \brief Plunging amplitude in the x-direction. */
 	*Plunging_Ampl_Y,           /*!< \brief Plunging amplitude in the y-direction. */
 	*Plunging_Ampl_Z;           /*!< \brief Plunging amplitude in the z-direction. */
+  unsigned short nMotion_Origin_X,    /*!< \brief Number of X-coordinate mesh motion origins. */
+	nMotion_Origin_Y,           /*!< \brief Number of Y-coordinate mesh motion origins. */
+	nMotion_Origin_Z,           /*!< \brief Number of Z-coordinate mesh motion origins. */
+	nTranslation_Rate_X,           /*!< \brief Number of Translational x-velocities for mesh motion. */
+	nTranslation_Rate_Y,           /*!< \brief Number of Translational y-velocities for mesh motion. */
+	nTranslation_Rate_Z,           /*!< \brief Number of Translational z-velocities for mesh motion. */
+	nRotation_Rate_X,           /*!< \brief Number of Angular velocities about the x-axis for mesh motion. */
+	nRotation_Rate_Y,           /*!< \brief Number of Angular velocities about the y-axis for mesh motion. */
+	nRotation_Rate_Z,           /*!< \brief Number of Angular velocities about the z-axis for mesh motion. */
+	nPitching_Omega_X,           /*!< \brief Number of Angular frequencies about the x-axis for pitching. */
+	nPitching_Omega_Y,           /*!< \brief Number of Angular frequencies about the y-axis for pitching. */
+	nPitching_Omega_Z,           /*!< \brief Number of Angular frequencies about the z-axis for pitching. */
+	nPitching_Ampl_X,           /*!< \brief Number of Pitching amplitudes about the x-axis. */
+	nPitching_Ampl_Y,           /*!< \brief Number of Pitching amplitudes about the y-axis. */
+	nPitching_Ampl_Z,           /*!< \brief Number of Pitching amplitudes about the z-axis. */
+	nPitching_Phase_X,           /*!< \brief Number of Pitching phase offsets about the x-axis. */
+	nPitching_Phase_Y,           /*!< \brief Number of Pitching phase offsets about the y-axis. */
+	nPitching_Phase_Z,           /*!< \brief Number of Pitching phase offsets about the z-axis. */
+	nPlunging_Omega_X,           /*!< \brief Number of Angular frequencies in the x-direction for plunging. */
+	nPlunging_Omega_Y,           /*!< \brief Number of Angular frequencies in the y-direction for plunging. */
+	nPlunging_Omega_Z,           /*!< \brief Number of Angular frequencies in the z-direction for plunging. */
+	nPlunging_Ampl_X,           /*!< \brief Number of Plunging amplitudes in the x-direction. */
+	nPlunging_Ampl_Y,           /*!< \brief Number of Plunging amplitudes in the y-direction. */
+	nPlunging_Ampl_Z;           /*!< \brief Number of Plunging amplitudes in the z-direction. */
 	bool Relative_Motion;       /*!< \brief Flag for relative motion between zones (search & interpolate required). */
-	double FreqPlungeAeroelastic; /*!< \brief Plunging natural frequency for Aeroelastic. */
-	double FreqPitchAeroelastic; /*!< \brief Pitch natural frequency for Aeroelastic. */
-	double *Aeroelastic_np1; /*!< \brief Structural source terms used for Aeroelastic computation at time level n+1. */
-	double *Aeroelastic_n; /*!< \brief Structural source terms used for Aeroelastic computation at time level n. */
-	double *Aeroelastic_n1; /*!< \brief Structural Source terms used for Aeroelastic computation at time level n-1. */
-	double Aeroelastic_plunge; /*!< \brief Value of plunging coordinate at the end of an external iteration. */
-	double Aeroelastic_pitch; /*!< \brief Value of pitching coordinate at the end of an external iteration. */
-	unsigned short Aeroelastic_Grid_Movement;	/*!< \brief Type of Aeroelastic grid movement. */
-	unsigned short Aeroelastic_Grid_Velocity;	/*!< \brief Type of Aeroelastic grid velocity. */
+	double *Aeroelastic_np1, /*!< \brief Structural source terms used for Aeroelastic computation at time level n+1. */
+	*Aeroelastic_n, /*!< \brief Structural source terms used for Aeroelastic computation at time level n. */
+	*Aeroelastic_n1; /*!< \brief Structural Source terms used for Aeroelastic computation at time level n-1. */
+    double FreqPlungeAeroelastic, /*!< \brief Plunging natural frequency for Aeroelastic. */
+	FreqPitchAeroelastic, /*!< \brief Pitch natural frequency for Aeroelastic. */
+    Aeroelastic_plunge, /*!< \brief Value of plunging coordinate at the end of an external iteration. */
+	Aeroelastic_pitch; /*!< \brief Value of pitching coordinate at the end of an external iteration. */
+	unsigned short Aeroelastic_Grid_Movement,	/*!< \brief Type of Aeroelastic grid movement. */
+	Aeroelastic_Grid_Velocity,	/*!< \brief Type of Aeroelastic grid velocity. */
+    Gust_Type,	/*!< \brief Type of Gust. */
+    Gust_Dir;   /*!< \brief Direction of the gust */
+    double Gust_WaveLength,     /*!< \brief The gust wavelength. */
+    Gust_Periods,              /*!< \brief Number of gust periods. */
+    Gust_Ampl,                  /*!< \brief Gust amplitude. */
+    Gust_Begin_Time,            /*!< \brief Time at which to begin the gust. */
+    Gust_Begin_Loc;             /*!< \brief Location at which the gust begins. */
 	double *Density_FreeStreamND_Time,
 	*Pressure_FreeStreamND_Time,
 	**Velocity_FreeStreamND_Time,
@@ -1290,12 +1322,6 @@ public:
 	double* GetVelocity_FreeStreamND(void);
 
 	/*!
-	 * \brief Get the vector of the non-dimensionalized freestream angular velocity (rotating frame).
-	 * \return Non-dimensionalized freestream angular velocity vector (rotating frame).
-	 */
-	double* GetOmega_FreeStreamND(void);
-
-	/*!
 	 * \brief Get the value of the non-dimensionalized freestream energy.
 	 * \return Non-dimensionalized freestream energy.
 	 */
@@ -1486,6 +1512,12 @@ public:
 	 */
 	double GetLimiterCoeff(void);
 
+  /*!
+	 * \brief Get the value of sharp edge limiter.
+	 * \return Value of the sharp edge limiter coefficient.
+	 */
+	double GetSharpEdgesCoeff(void);
+  
 	/*! 
 	 * \brief Get the Reynolds number. Dimensionless number that gives a measure of the ratio of inertial forces 
 	 *        to viscous forces and consequently quantifies the relative importance of these two types of forces 
@@ -1642,6 +1674,12 @@ public:
 	 */
 	unsigned long GetUnst_nIntIter(void);
 
+  /*!
+	 * \brief Get the restart iteration number for unsteady simulations.
+	 * \return Restart iteration number for unsteady simulations.
+	 */
+  long GetUnst_RestartIter(void);
+  
 	/*!
 	 * \brief Retrieves the number of periodic time instances for Time Spectral.
 	 * \return: Number of periodic time instances for Time Spectral.
@@ -2877,12 +2915,12 @@ public:
 	 * \return <code>FALSE</code> means that the adjoint turbulence equations will be used.
 	 */
 	bool GetFrozen_Visc(void);
-
-	/*!
-	 * \brief Whether or not to output sensitivities to the screen.
-	 * \return <code>FALSE</code> means that nothing is output.
+  
+  /*!
+	 * \brief Provides information about if the sharp edges are going to be removed from the sensitivity.
+	 * \return <code>FALSE</code> means that the sharp edges will be removed from the sensitivity.
 	 */
-	bool GetShow_Adj_Sens(void);
+	bool GetSens_Remove_Sharp(void);
 
 	/*!
 	 * \brief Get the kind of inlet boundary condition treatment (total conditions or mass flow).
@@ -2896,12 +2934,6 @@ public:
 	 * \return <code>TRUE</code> means that only the points on the FFD box will be moved.
 	 */
 	bool GetHold_GridFixed(void);
-
-	/*! 
-	 * \brief Get the kind of adjoint approach. There are several options: Continuous, Discrete, Hyrbid
-	 * \return Kind of adjoint approach.
-	 */
-	unsigned short GetKind_Adjoint(void);
 
 	/*!
 	 * \brief Get the kind of objective function. There are several options: Drag coefficient, 
@@ -3262,7 +3294,22 @@ public:
 	 * \return Name of the file with the surface information for the linearized flow problem.
 	 */
 	string GetSurfLinCoeff_FileName(void);
+  
+  /*!
+	 * \brief Augment the input filename with the iteration number for an unsteady file.
+   * \param[in] val_filename - String value of the base filename.
+   * \param[in] val_iter - Unsteady iteration number or time spectral instance.
+	 * \return Name of the file with the iteration numer for an unsteady solution file.
+	 */
+  string GetUnsteady_FileName(string val_filename, int val_iter);
 
+  /*!
+	 * \brief Append the input filename string with the appropriate objective function extension.
+   * \param[in] val_filename - String value of the base filename.
+	 * \return Name of the file with the appropriate objective function extension.
+	 */
+  string GetObjFunc_Extension(string val_filename);
+  
 	/*! 
 	 * \brief Get functional that is going to be used to evaluate the flow convergence.
 	 * \return Functional that is going to be used to evaluate the flow convergence.
@@ -3848,24 +3895,6 @@ public:
 	double GetCteViscDrag(void);
 
 	/*! 
-	 * \brief Value of the origin of the rotation axis for a rotating frame problem.
-	 * \return Value of the rotation axis origin.
-	 */	
-	double *GetRotAxisOrigin(void);
-
-	/*! 
-	 * \brief Angular velocity vector for a rotating frame problem.
-	 * \return The specified angular velocity vector.
-	 */	
-	double *GetOmega(void);
-
-	/*!
-	 * \brief Angular velocity magnitude for a rotating frame problem.
-	 * \return The specified angular velocity magnitude.
-	 */	
-	double GetOmegaMag(void);
-
-	/*! 
 	 * \brief Update the CFL number using the ramp information.
 	 * \param[in] val_iter - Current solver iteration.
 	 */
@@ -3916,7 +3945,13 @@ public:
 	 * \return Sliding interface domain from the config information for the marker <i>val_marker</i>.
 	 */
 	unsigned short GetSlideBound_Zone(string val_marker);
-
+  
+  /*!
+	 * \brief Get the internal index for a moving boundary <i>val_marker</i>.
+	 * \return Internal index for a moving boundary <i>val_marker</i>.
+	 */
+	unsigned short GetMarker_Moving(string val_marker);
+  
 	/*!
 	 * \brief Flag for relative motion between zones.
 	 * \return <code>TRUE</code> if there is relative motion (need to search & interpolate); otherwise <code>FALSE</code>.
@@ -4319,6 +4354,50 @@ public:
 	 * \return type of grid velocity computation used.
 	 */
 	unsigned short GetAeroelastic_GridVelocity(void);
+    
+    /*!
+	 * \brief Get information about the wind gust.
+	 * \return <code>TRUE</code> if there is a wind gust; otherwise <code>FALSE</code>.
+	 */
+	bool GetWind_Gust(void);
+    
+    /*!
+	 * \brief Get the type of gust to simulate.
+	 * \return type of gust to use for the simulation.
+	 */
+	unsigned short GetGust_Type(void);
+    
+    /*!
+	 * \brief Get the gust direction.
+	 * \return the gust direction.
+	 */
+    unsigned short GetGust_Dir(void);
+
+    /*!
+	 * \brief Value of the gust wavelength.
+	 */
+	double GetGust_WaveLength(void);
+    
+    /*!
+	 * \brief Value of the number of gust periods.
+	 */
+	double GetGust_Periods(void);
+    
+    /*!
+	 * \brief Value of the gust amplitude.
+	 */
+	double GetGust_Ampl(void);
+    
+    /*!
+	 * \brief Value of the time at which to begin the gust.
+	 */
+	double GetGust_Begin_Time(void);
+    
+    /*!
+	 * \brief Value of the location ath which the gust begins.
+	 */
+	double GetGust_Begin_Loc(void);
+
 
 	/*!
 	 * \brief Given arrays x[1..n] and y[1..n] containing a tabulated function, i.e., yi = f(xi), with

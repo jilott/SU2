@@ -156,8 +156,6 @@ int main(int argc, char *argv[]) {
     
 		geometry_container[iZone] = new CGeometry *[config_container[iZone]->GetMGLevels()+1];
 		geometry_container[iZone][MESH_0] = new CPhysicalGeometry(config_container[iZone],
-                                                              config_container[iZone]->GetMesh_FileName(),
-																															config_container[iZone]->GetMesh_FileFormat(),
                                                               iZone+1, nZone);
 		
   }
@@ -305,7 +303,11 @@ int main(int argc, char *argv[]) {
   
 	if (rank == MASTER_NODE)
 		output->SetHistory_Header(&ConvHist_file, config_container[ZONE_0]);
-	
+  
+  /*--- Check for an unsteady restart. Update ExtIter if necessary. ---*/
+  if (config_container[ZONE_0]->GetWrt_Unsteady() && config_container[ZONE_0]->GetRestart())
+    ExtIter = config_container[ZONE_0]->GetUnst_RestartIter();
+  
 	/*--- Main external loop of the solver. Within this loop, each iteration ---*/
   
 	if (rank == MASTER_NODE)
@@ -476,19 +478,6 @@ int main(int argc, char *argv[]) {
 		ExtIter++;
     
 	}
-	
-  /*--- If requested, print adjoint sensitivity information to the console on exit. ---*/
-  
-	if ((config_container[ZONE_0]->GetAdjoint()) && (config_container[ZONE_0]->GetShow_Adj_Sens())) {
-		cout << endl;
-		cout << "Adjoint-derived sensitivities:" << endl;
-		cout << "Surface sensitivity = " << solver_container[ZONE_0][MESH_0][ADJFLOW_SOL]->GetTotal_Sens_Geo() << endl;
-		cout << "Mach number sensitivity = " << solver_container[ZONE_0][MESH_0][ADJFLOW_SOL]->GetTotal_Sens_Mach() << endl;
-		cout << "Angle of attack sensitivity = " << solver_container[ZONE_0][MESH_0][ADJFLOW_SOL]->GetTotal_Sens_AoA() << endl;
-		cout << "Pressure sensitivity = " << solver_container[ZONE_0][MESH_0][ADJFLOW_SOL]->GetTotal_Sens_Press() << endl;
-		cout << "Temperature sensitivity = " << solver_container[ZONE_0][MESH_0][ADJFLOW_SOL]->GetTotal_Sens_Temp() << endl;
-		cout << endl;
-	}
   
   /*--- Close the convergence history file. ---*/
   
@@ -532,8 +521,8 @@ int main(int argc, char *argv[]) {
   finish = MPI::Wtime();
   time = finish-start;
   if (rank == MASTER_NODE) {
-    cout << "\nCompleted in " << fixed << time << " seconds on ";
-    if (size == 1) cout << size << " core.\n" << endl;
+    cout << "\nCompleted in " << fixed << time << " seconds on "<< size;
+    if (size == 1) cout << " core.\n" << endl;
     else cout << " cores.\n" << endl;
   }
 #endif
