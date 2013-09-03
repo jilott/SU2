@@ -38,7 +38,7 @@ void COutput::SetTecplot_ASCII(CConfig *config, CGeometry *geometry, unsigned sh
   
 	bool grid_movement  = config->GetGrid_Movement();
 	bool adjoint = config->GetAdjoint();
-    
+    bool jouleheating = config->GetJouleHeating();
 	char cstr[200], buffer[50];
 	string filename;
   
@@ -194,6 +194,7 @@ void COutput::SetTecplot_ASCII(CConfig *config, CGeometry *geometry, unsigned sh
     if ((Kind_Solver == EULER) || (Kind_Solver == NAVIER_STOKES) || (Kind_Solver == RANS) ||
         (Kind_Solver == FREE_SURFACE_EULER) || (Kind_Solver == FREE_SURFACE_NAVIER_STOKES) || (Kind_Solver == FREE_SURFACE_RANS)) {
       Tecplot_File << ",\"Pressure\",\"Pressure_Coefficient\",\"Mach\"";
+        if (jouleheating) Tecplot_File << ",\"JouleHeat\"";
     }
     
     if ((Kind_Solver == NAVIER_STOKES) || (Kind_Solver == RANS) ||

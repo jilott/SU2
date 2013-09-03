@@ -416,7 +416,12 @@ CEulerSolver::CEulerSolver(CGeometry *geometry, CConfig *config, unsigned short 
     
 	if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) least_squares = true;
 	else least_squares = false;
-    
+
+    jouleheating = false;
+    if (config->GetJouleHeating()) { 
+        jouleheating = true;  
+        nPlane    = config->GetNoOfPlanes();    // Maximum number of planes 
+    }
 	/*--- MPI solution ---*/
 	Set_MPI_Solution(geometry, config);
     
@@ -482,6 +487,20 @@ CEulerSolver::~CEulerSolver(void) {
 		}
 		delete [] YPlus;
 	}
+    
+    if (jouleheating) {
+        
+        delete [] Xcoord_Radial;
+        delete [] Ycoord_Radial;
+        delete [] Zcoord_Radial;
+        
+        for (unsigned short iPlane = 0; iPlane < nPlane + 2; iPlane ++) {
+            delete [] U_Radial[iPlane];
+        }
+        delete [] U_Radial;
+
+    
+    }
     
 }
 
@@ -1412,6 +1431,51 @@ void CEulerSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_c
 	bool dual_time = ((config->GetUnsteady_Simulation() == DT_STEPPING_1ST) ||
                       (config->GetUnsteady_Simulation() == DT_STEPPING_2ND));
     
+    bool jouleheating = config->GetJouleHeating();
+    
+    if (jouleheating && ExtIter == 0) {
+        double *Coord = new double[nDim];
+        double sigma, Gaussf, Gaussc,mu, rad;
+        mu = 0.0; 
+        sigma = sqrt(0.0074);
+        Gaussc = 1.0;///(sigma*sqrt(2*PI_NUMBER));
+        double Gamma_Minus_One = Gamma - 1.0;
+        double Pressure_FreeStreamND, *Velocity_FreeStreamND, ModVel_FreeStreamND2, Energy_FreeStreamND;
+        
+        Velocity_FreeStreamND = new double[nDim];
+        ModVel_FreeStreamND2 = 0.0;
+        for (iDim = 0; iDim < nDim; iDim++)
+            ModVel_FreeStreamND2 += Velocity_Inf[iDim]*Velocity_Inf[iDim];
+        
+        for (iMesh = 0; iMesh <= config->GetMGLevels(); iMesh++) {
+            for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
+                Coord = geometry[iMesh]->node[iPoint]->GetCoord();
+                rad = sqrt(Coord[1]*Coord[1] + Coord[2]*Coord[2]);
+                Gaussf = Gaussc* exp(-(rad-mu)*(rad-mu)/(2*sigma*sigma));
+                //                Gaussf = 1.0;
+                Pressure_FreeStreamND = Gaussf*Pressure_Inf;
+                for (iDim = 0; iDim < nDim; iDim++)
+                    Velocity_FreeStreamND[iDim] = Velocity_Inf[iDim]/config->GetVelocity_Ref();
+                
+                Energy_FreeStreamND = Density_Inf*(Pressure_FreeStreamND/(Density_Inf*Gamma_Minus_One)+0.5*ModVel_FreeStreamND2);
+                
+                solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution(0, Density_Inf);
+                for (iDim = 0; iDim < nDim; iDim++)
+                    solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution(iDim+1, Density_Inf*Velocity_Inf[iDim]);
+                solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution(nVar-1, Energy_FreeStreamND);
+                
+                solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution_Old(0, Density_Inf);
+                for (iDim = 0; iDim < nDim; iDim++)
+                    solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution_Old(iDim+1, Density_Inf*Velocity_Inf[iDim]);
+                solver_container[iMesh][FLOW_SOL]->node[iPoint]->SetSolution_Old(nVar-1, Energy_FreeStreamND);
+                
+            }
+            /*--- Set the MPI communication ---*/
+            solver_container[iMesh][FLOW_SOL]->Set_MPI_Solution(geometry[iMesh], config);
+            solver_container[iMesh][FLOW_SOL]->Set_MPI_Solution_Old(geometry[iMesh], config);
+        }
+    }
+    
 	if (freesurface) {
         
 		for (iMesh = 0; iMesh <= config->GetMGLevels(); iMesh++) {
@@ -1513,6 +1577,8 @@ void CEulerSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_c
 		}
         
 	}
+    
+    
     
     if (config->GetEngine_Intake()) {
         
@@ -1665,7 +1731,6 @@ void CEulerSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_c
         
 	}
     
-    
 }
 
 void CEulerSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem) {
@@ -1688,10 +1753,7 @@ void CEulerSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container
     GetNacelle_Properties(geometry, config, iMesh);
     
     /*--- Compute Joule heating ---*/
-	//if (jouleheating) geometry->SetGeometryPlanes(config);
-    //if(jouleheating) Plane_Sections(geometry, config);
-    
-    Plane_Sections(geometry, config);
+    if(jouleheating) Plane_Sections(geometry, config);
     
 	for (iPoint = 0; iPoint < nPoint; iPoint ++) {
         
@@ -1705,6 +1767,7 @@ void CEulerSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container
         
 		/*--- Initialize the convective residual vector ---*/
 		LinSysRes.SetBlock_Zero(iPoint);
+        
         
 	}
     
@@ -1728,6 +1791,8 @@ void CEulerSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container
     
 	/*--- Initialize the jacobian matrices ---*/
 	if (implicit) Jacobian.SetValZero();
+    
+    
     
 }
 
@@ -2318,48 +2383,21 @@ void CEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_contain
 	if (jouleheating) {
         
         if (nDim == 3){
-            unsigned short iPlane, nPlane, iPoint,iPoint_Plane, Plane_i, Plane_j, Point_i, Point_j; 
+            unsigned short iPlane, iPoint,iPoint_Plane, Plane_i, Plane_j, Point_i, Point_j; 
             double *Coord, Joule_i, Joule_j, Joule;
             double dist_i, dist_j, dist;
             
-            double intgral_sigma,r, **JouleHeat;
-            nPlane = 2 + config->GetNoOfPlanes();
-            JouleHeat = new double* [nPlane];
-            
-            
-            //        
-            //        /*--- First loop over all the points on the radial grid in every plane to calculate the integral in Joule Heat ---*/
-            //        for (iPlane = 0; iPlane < nPlane; iPlane++) {
-            //            intgral_sigma[iPlane] = 0;
-            //            for (iPoint = 0; iPoint < U_Radial[iPlane].size(); iPoint++){ 
-            //                energy =  U_Radial[iPlane][iPoint][nVar-1];
-            //                rho = U_Radial[iPlane][iPoint][0];
-            //                vel2 = 0.0;
-            //                for (iDim = 0; iDim < nDim; iDim++)                  
-            //                    vel2 += (U_Radial[iPlane][iPoint][iDim+1]*U_Radial[iPlane][iPoint][iDim+1]);
-            //                
-            //                vel2 = vel2/(rho*rho);
-            //                pressure = (Gamma-1)*(energy - 0.5*rho*vel2);	// Partial Pressure of species 1
-            //                temperature = pressure/(rho*Gas_Constant);
-            //                
-            //                r = sqrt(Ycoord_Radial[iPlane][iPoint]*Ycoord_Radial[iPlane][iPoint] + 
-            //                         Zcoord_Radial[iPlane][iPoint]*Zcoord_Radial[iPlane][iPoint]);
-            //                sigma = numerics->ComputeElec_Cond(pressure, temperature);
-            //                intgral_sigma[iPlane] += sigma*r*dr*dtheta;
-            //            }
-            //        }
-            //        
-            //        
-            
+            double intgral_sigma,r, **JouleHeat;            
+            JouleHeat = new double* [nPlane +2];
             
             /*--- First loop over all the points on the radial grid in every plane to calculate the integral in Joule Heat ---*/
-            for (iPlane = 0; iPlane < nPlane; iPlane++) {
+            for (iPlane = 0; iPlane < nPlane+2; iPlane++) {
                 
                 intgral_sigma = 0;
                 
-                JouleHeat[iPlane] = new double[U_Radial[iPlane].size()];
+                JouleHeat[iPlane] = new double[Ycoord_Radial[iPlane].size()];
                 
-                for (iPoint = 0; iPoint < U_Radial[iPlane].size(); iPoint++){ 
+                for (iPoint = 0; iPoint < Ycoord_Radial[iPlane].size(); iPoint++){ 
                     
                     /*--- Set solution  ---*/
                     numerics->SetConservative(U_Radial[iPlane][iPoint], U_Radial[iPlane][iPoint]);
@@ -2375,12 +2413,13 @@ void CEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_contain
                     
                     /*--- Sum over points to get the integral  ---*/
                     intgral_sigma+= numerics->GetElec_CondIntegral();
+                    
                 }
                 
                 /*--- Set the integral  ---*/
                 numerics->SetElec_CondIntegralsqr(intgral_sigma*intgral_sigma);
                 
-                for (iPoint = 0; iPoint < U_Radial[iPlane].size(); iPoint++){ 
+                for (iPoint = 0; iPoint < Ycoord_Radial[iPlane].size(); iPoint++){ 
                     
                     /*--- Set solution  ---*/
                     numerics->SetConservative(U_Radial[iPlane][iPoint], U_Radial[iPlane][iPoint]);
@@ -2391,59 +2430,64 @@ void CEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_contain
                     /*--- Compute Residual ---*/
                     JouleHeat[iPlane][iPoint]  = numerics->ComputeJouleHeat();
                     
-                }
-                
+                }                
             }
             
-            
             /*--- loop over points ---*/
-            for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
+            for (iPoint = 0; iPoint < nPoint; iPoint++) {
                 
                 Coord = geometry->node[iPoint]->GetCoord();
                 
-                for (iPlane = 0; iPlane < U_Radial[iPlane].size()-1; iPlane++){
-                    if (Coord[0] >= Xcoord_Radial[iPlane][0] && Coord[0] <= Xcoord_Radial[iPlane+1][0]){
+                for (iPlane = 0; iPlane < nPlane+1; iPlane++){
+                    if ( ( (Coord[0] - Xcoord_Radial[iPlane][0]) >= 0.0) && (Coord[0] - Xcoord_Radial[iPlane+1][0]) <= 0){
                         Plane_i = iPlane; Plane_j = iPlane+1;
                         break;
                     }
                 }
                 
-                dist_i= -1; dist_j = -1;
+                dist_i= 1E16; dist_j = 1E16;
                 
-                for (iPoint_Plane = 0; iPoint_Plane < U_Radial[Plane_i].size(); iPoint_Plane++){ 
+                for (iPoint_Plane = 0; iPoint_Plane < Ycoord_Radial[Plane_i].size(); iPoint_Plane++){ 
+                    
                     dist = (Xcoord_Radial[Plane_i][iPoint_Plane] - Coord[0])*(Xcoord_Radial[Plane_i][iPoint_Plane] - Coord[0]) +
                     (Ycoord_Radial[Plane_i][iPoint_Plane] - Coord[1])*(Ycoord_Radial[Plane_i][iPoint_Plane] - Coord[1]) +
                     (Zcoord_Radial[Plane_i][iPoint_Plane] - Coord[2])*(Zcoord_Radial[Plane_i][iPoint_Plane] - Coord[2]);
                     
                     dist = sqrt(dist);
                     
-                    if (dist_i <= dist) {
+                    if (dist <= dist_i) {
                         dist_i  = dist;
                         Point_i = iPoint_Plane;
                     }
-                    
                 }
                 
-                for (iPoint_Plane = 0; iPoint_Plane < U_Radial[Plane_j].size(); iPoint_Plane++){ 
+                for (iPoint_Plane = 0; iPoint_Plane < Ycoord_Radial[Plane_j].size(); iPoint_Plane++){ 
+                    
                     dist = (Xcoord_Radial[Plane_j][iPoint_Plane] - Coord[0])*(Xcoord_Radial[Plane_j][iPoint_Plane] - Coord[0]) +
                     (Ycoord_Radial[Plane_j][iPoint_Plane] - Coord[1])*(Ycoord_Radial[Plane_j][iPoint_Plane] - Coord[1]) +
                     (Zcoord_Radial[Plane_j][iPoint_Plane] - Coord[2])*(Zcoord_Radial[Plane_j][iPoint_Plane] - Coord[2]);
                     
                     dist = sqrt(dist);
                     
-                    if (dist_j <= dist) {
+                    if (dist <= dist_j) {
                         dist_j  = dist;
                         Point_j = iPoint_Plane;
                     }
-                    
                 }
                 
                 Joule_i = JouleHeat[Plane_i][Point_i];
-                Joule_j = JouleHeat[Plane_j][Point_j];
-                Joule   = (dist_i*Joule_i + dist_j*Joule_j)/(dist_i + dist_j + EPS);
+                Joule_j = JouleHeat[Plane_j][Point_j];                
+                Joule   = (dist_j*Joule_i + dist_i*Joule_j)/(dist_i + dist_j + EPS);
                 
                 /*--- Set control volume ---*/
                 numerics->SetVolume(geometry->node[iPoint]->GetVolume());
+                
+                /*--- Set the value of Joule Heating ---*/
+                numerics->SetJouleHeat(Joule);
+                
+                
+                /*--- Store the value of Joule Heating for output purpose---*/
+                node[iPoint]->SetJouleHeat(Joule);
                 
                 /*--- Compute Residual ---*/
                 numerics->ComputeResidual(Residual, Jacobian_i, config);
@@ -2452,8 +2496,15 @@ void CEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_contain
                 if (implicit) Jacobian.SubtractBlock(iPoint, iPoint, Jacobian_i);
                 
             }
+            
+            
+            for (iPlane = 0; iPlane < nPlane+2; iPlane++) 
+                delete JouleHeat[iPlane];
+            
+            delete [] JouleHeat;
         }
     }
+    
     
 }
 
@@ -2822,33 +2873,44 @@ void CEulerSolver::SetDissipation_Switch(CGeometry *geometry, CConfig *config) {
 }
 
 void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
-    unsigned short iPlane, nPlane,iDim,axis_Dim, nPt_r, nPt_theta, iPt_r, iPt_theta, iPoint, jPoint,iter_0;
+    unsigned short iPlane,iDim,axis_Dim, nPt_r, nPt_theta, iPt_r, iPt_theta, iPoint, jPoint,iter_0;
     double **Plane_P0, **Plane_Normal, MinPlane, MaxPlane, *Coord;
     vector<double> *Xcoord_Plane, *Ycoord_Plane, *Zcoord_Plane;
     vector<unsigned long> *Index_iPoint, *Index_jPoint;
     //vector<double> *Xcoord_Radial, *Ycoord_Radial, *Zcoord_Radial;
     vector<double*> *U_Plane;
+    vector<double> *Rho_Plane;
+    vector<double> *RhoUx_Plane;
+    vector<double> *RhoUy_Plane;
+    vector<double> *RhoUz_Plane;
+    vector<double> *RhoE_Plane;
     
     double r, theta,x,y,z;
-    double Pr, temp, d1, d2,d3,dist;
-    double *iCoord, *jCoord, *U_i; 
+    double d1, d2,d3,dist;
+    double *iCoord, *jCoord, *U_iPoint = NULL; 
     double a,b,c, ooDen;
     double *U1, *U2, *U3;
     double x1,y1,z1, x2,y2,z2, x3,y3,z3;
     double a11, a12, a13;
     double a21, a22, a23;
     double a31, a32, a33;
-    U_i = new double[nVar];
-    
+    //U1 = NULL; U2 = NULL; U3 = NULL;
+    U_iPoint = new double[nVar];
+    U1 = new double[nVar];
+    U2 = new double[nVar];
+    U3 = new double[nVar];
+    iCoord = new double[nDim];
+    jCoord = new double[nDim];
+    Coord = new double[nDim];
+
     /*--- Each plane is identified with a point on it, and it's normal --*/
     
     if (nDim == 3) {
-        nPlane    = config->GetNoOfPlanes();    // Maximum number of planes 
         MinPlane  = config->GetMin_Plane();    // coordinate of the first plane
         MaxPlane  = config->GetMax_Plane();   // coordinate of the last plane
         
         axis_Dim  = 0;    // axis of planes
-        nPt_r     = 10;   // number of points in the radial direction in every sliced plane
+        nPt_r     = 30;   // number of points in the radial direction in every sliced plane
         nPt_theta = 10;   // number of points in the azimuthal direction in every sliced plane
         double rmax = 0.2;
         double dtheta = 2.0*PI_NUMBER/(nPt_theta);
@@ -2858,6 +2920,12 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
         Xcoord_Plane = new vector<double> [nPlane]; 
         Ycoord_Plane = new vector<double> [nPlane];
         Zcoord_Plane = new vector<double> [nPlane];
+        
+        Rho_Plane = new vector<double> [nPlane]; 
+        RhoUx_Plane = new vector<double> [nPlane];
+        RhoUy_Plane = new vector<double> [nPlane];
+        RhoUz_Plane = new vector<double> [nPlane];
+        RhoE_Plane = new vector<double> [nPlane];
         
         /*--- brief These vectors are going to store the new coordinates on the planes ---*/
         U_Plane = new vector<double*> [nPlane];
@@ -2871,7 +2939,7 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
         Xcoord_Radial = new vector<double> [nPlane+2]; 
         Ycoord_Radial = new vector<double> [nPlane+2];
         Zcoord_Radial = new vector<double> [nPlane+2];
-        U_Radial = new vector<double*> [nPlane+2];
+        U_Radial = new double** [nPlane+2];
         
         /*--- A vector that will store the x,y,z coordinates of a point on each plane ---*/
         Plane_P0 = new double *[nPlane];
@@ -2912,20 +2980,28 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
                 d1 = sqrt((x-iCoord[0])*(x-iCoord[0]) + (y-iCoord[1])*(y-iCoord[1]) +  (z-iCoord[2])*(z-iCoord[2]));
                 d2 = sqrt((x-jCoord[0])*(x-jCoord[0]) + (y-jCoord[1])*(y-jCoord[1]) +  (z-jCoord[2])*(z-jCoord[2]));
                 
-                // Pr   = (d1*node[iPoint]->GetPressure(false) + d2*node[jPoint]->GetPressure(false))/ (d1+d2+EPS);
-                // temp = (d1*node[iPoint]->GetTemperature()   + d2*node[jPoint]->GetTemperature())/ (d1+d2+EPS);
-                
                 for (unsigned short iVar =0; iVar < nVar; iVar++){
-                    U_i[iVar]    = (d1*node[iPoint]->GetSolution(iVar) + d2*node[jPoint]->GetSolution(iVar))/ (d1+d2+EPS);
+                    U_iPoint[iVar]    = (d2*node[iPoint]->GetSolution(iVar) + d1*node[jPoint]->GetSolution(iVar))/ (d1+d2+EPS);
+                    
                 }
                 
-                //    Pressure_Plane[iPlane].push_back(Pr);
-                //    Temperature_Plane[iPlane].push_back(temp);     
-                U_Plane[iPlane].push_back(U_i);
+                Rho_Plane[iPlane].push_back(U_iPoint[0]);
+                RhoUx_Plane[iPlane].push_back(U_iPoint[1]);
+                RhoUy_Plane[iPlane].push_back(U_iPoint[2]);
+                RhoUz_Plane[iPlane].push_back(U_iPoint[3]);
+                RhoE_Plane[iPlane].push_back(U_iPoint[4]);
             }
         }
         
-        
+        unsigned short icount = -1; 
+        unsigned short ncount = nPt_theta*(nPt_r-1) +1;
+        for (iPlane = 0; iPlane < nPlane+2; iPlane++){
+            U_Radial[iPlane] = new double*[ncount];
+            for (icount = 0; icount < ncount; icount++){
+                U_Radial[iPlane][icount] = new double[nVar];
+            }
+        }
+        icount = -1;
         for (iPt_theta = 0; iPt_theta < nPt_theta; iPt_theta ++){ 
             theta = iPt_theta*dtheta;
             iter_0 = (iPt_theta == 0) ? 0 : 1;
@@ -2934,71 +3010,96 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
                 y = r*cos(theta); 
                 z = r*sin(theta);
                 x = 0.0;
+                icount ++;
                 
                 Xcoord_Radial[0].push_back(x); 
                 Ycoord_Radial[0].push_back(y);              
                 Zcoord_Radial[0].push_back(z);
                 
-                d1 = -1.0; d2 = -1.0; d3 = -1.0;
-                
-                
+                d1 = 1E16; d2 = 1E16; d3 = 1E16;
                 for (iPoint = 0; iPoint <  nPointDomain; iPoint++) {
                     
-                    if (x < geometry->node[iPoint]->GetCoord(0)){
-                        Coord = geometry->node[iPoint]->GetCoord();
-                        dist = sqrt((x- Coord[0])*(x- Coord[0]) + 
-                                    (y- Coord[1])*(y- Coord[1]) +  
-                                    (z- Coord[2])*(z- Coord[2]));
-                        
-                        /*--- Find a point on the planar grid that is closest to this point on the radial grid ---*/
-                        if (dist >= d1)     {
-                            d1 = dist; x1 = Coord[0]; y1 = Coord[1]; z1 = Coord[2];
-                            U1 = node[iPoint]->GetSolution();
-                        }
-                        
-                        /*--- Find a point on the planar grid that is second closest to this point on the radial grid ---*/
-                        else if(dist >= d2) {
-                            d2 = dist; x2 = Coord[0];  y2 = Coord[1]; z2 = Coord[2];
-                            U2 = node[iPoint]->GetSolution();                        
-                        }
-                        
-                        /*--- Find a point on the planar grid that is third closest to this point on the radial grid ---*/
-                        else if(dist >= d3) {
-                            d3 = dist; x3 = Coord[0];  y3 = Coord[1]; z3 = Coord[2];
-                            U3 = node[iPoint]->GetSolution();
-                            
-                        }
-                        
+                    //if (x < geometry->node[iPoint]->GetCoord(0)){
+                    Coord = geometry->node[iPoint]->GetCoord();
+                    dist = sqrt((x- Coord[0])*(x- Coord[0]) + 
+                                (y- Coord[1])*(y- Coord[1]) +  
+                                (z- Coord[2])*(z- Coord[2]));
+                    
+                    /*--- Find a point on the planar grid that is closest to this point on the radial grid ---*/
+                    if (dist <= d1)     {
+                        d1 = dist; x1 = Coord[0]; y1 = Coord[1]; z1 = Coord[2];
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U1[iVar] = node[iPoint]->GetSolution(iVar);
                     }
+                    
+                    /*--- Find a point on the planar grid that is second closest to this point on the radial grid ---*/
+                    else if(dist <= d2) {
+                        d2 = dist; x2 = Coord[0];  y2 = Coord[1]; z2 = Coord[2];
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U2[iVar] = node[iPoint]->GetSolution(iVar);                        
+                    }
+                    
+                    /*--- Find a point on the planar grid that is third closest to this point on the radial grid ---*/
+                    else if(dist <= d3) {
+                        d3 = dist; x3 = Coord[0];  y3 = Coord[1]; z3 = Coord[2];
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U3[iVar] = node[iPoint]->GetSolution(iVar);                    
+                    }
+                    
                 }
                 
                 /*--- Find planes fitting the profiles of pressure and temperatures on the three points, and pass it through the  point on the radial grid. ---*/
                 
-                ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
-                a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
-                a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
-                a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
-                
-                for (unsigned short iVar; iVar < nVar; iVar++) {
-                    a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
-                    b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
-                    c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
-                    U_i[iVar] = a*y + b*z + c;
+                if ( fabs(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2) < EPS) {
+                    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                        U_iPoint[iVar] = (d1*U1[iVar] + d2*U2[iVar] + d3*U3[iVar])/(d1 +d2 + d3 +EPS);
+                    }
+                    
+                    
+                }
+                else{
+                    
+                    ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
+                    a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
+                    a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
+                    a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
+                    
+                    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                        a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
+                        b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
+                        c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
+                        U_iPoint[iVar] = a*y + b*z + c;
+                    }
                 }
                 
-                /*--- Store these values of Pressure and Temperature, which will be needed to calculate electrical conductivity ---*/
-                //            Pressure_Radial[iPlane].push_back(Pr);
-                //           Temperature_Radial[iPlane].push_back(temp);
-                U_Radial[0].push_back(U_i);
+                if (d1 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U1[iVar];
+                }
+                if (d2 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U2[iVar];
+                }
+                if (d3 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U3[iVar];
+                }
                 
+                /*--- Store these flow variables to calculate electrical conductivity ---*/
+                for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                    U_Radial[0][icount][iVar] = U_iPoint[iVar];       
+                }
             }
         }
         
+        icount = -1; 
+        unsigned short Pt1, Pt2, Pt3;
         
         for (iPt_theta = 0; iPt_theta < nPt_theta; iPt_theta ++){ 
             theta = iPt_theta*dtheta;
             iter_0 = (iPt_theta == 0) ? 0 : 1;
             for (iPt_r = iter_0; iPt_r < nPt_r; iPt_r++){
+                icount ++;
                 for (iPlane = 0; iPlane < nPlane; iPlane++) {
                     
                     /*--- Then store the coordinates of all the points on each plane, in a radial grid.  ---*/
@@ -3009,78 +3110,113 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
                     z = r*sin(theta);
                     x = MinPlane + iPlane*(MaxPlane - MinPlane)/double(nPlane-1);
                     
-                    
                     Xcoord_Radial[iPlane+1].push_back(x); 
                     Ycoord_Radial[iPlane+1].push_back(y);              
                     Zcoord_Radial[iPlane+1].push_back(z);
                     
                     /*--- Then, for this point on the radial grid, loop over all the points on the planar grid, and find three closet points to this point on the radial grid ---*/
                     
-                    d1 = -1.0; d2 = -1.0; d3 = -1.0;
+                    d1 = 1E16; d2 = 1E16; d3 = 1E16;
                     
                     for (iPoint = 0; iPoint <  Xcoord_Plane[iPlane].size(); iPoint++) {
-                        dist = sqrt((x- Xcoord_Plane[iPlane][0])*(x- Xcoord_Plane[iPlane][0]) + 
-                                    (y- Ycoord_Plane[iPlane][1])*(y- Ycoord_Plane[iPlane][1]) +  
-                                    (z- Zcoord_Plane[iPlane][2])*(z- Zcoord_Plane[iPlane][2]));
+                        dist = sqrt((x- Xcoord_Plane[iPlane][iPoint])*(x- Xcoord_Plane[iPlane][iPoint]) + 
+                                    (y- Ycoord_Plane[iPlane][iPoint])*(y- Ycoord_Plane[iPlane][iPoint]) +  
+                                    (z- Zcoord_Plane[iPlane][iPoint])*(z- Zcoord_Plane[iPlane][iPoint]));
                         
                         /*--- Find a point on the planar grid that is closest to this point on the radial grid ---*/
-                        if (dist >= d1)     {
+                        if (dist <= d1)     {
                             d1 = dist;
                             x1 = Xcoord_Plane[iPlane][iPoint];
                             y1 = Ycoord_Plane[iPlane][iPoint];
                             z1 = Zcoord_Plane[iPlane][iPoint];
-                            //     Pr1       = Pressure_Plane[iPlane][iPoint];
-                            //     temp1     = Temperature_Plane[iPlane][iPoint];
-                            U1 = U_Plane[iPlane][iPoint];
+                            Pt1 = iPoint;
+                            
+                            U1[0] = Rho_Plane[iPlane][iPoint];
+                            U1[1] = RhoUx_Plane[iPlane][iPoint];
+                            U1[2] = RhoUy_Plane[iPlane][iPoint];
+                            U1[3] = RhoUz_Plane[iPlane][iPoint];
+                            U1[4] = RhoE_Plane[iPlane][iPoint];
                         }
                         
                         /*--- Find a point on the planar grid that is second closest to this point on the radial grid ---*/
-                        else if(dist >= d2) {
+                        else if(dist <= d2) {
                             d2 = dist;
                             x2 = Xcoord_Plane[iPlane][iPoint];
                             y2 = Ycoord_Plane[iPlane][iPoint];
                             z2 = Zcoord_Plane[iPlane][iPoint];
-                            //    Pr2       = Pressure_Plane[iPlane][iPoint];
-                            //    temp2     = Temperature_Plane[iPlane][iPoint];
-                            U2 = U_Plane[iPlane][iPoint];
+                            Pt2 = iPoint;
                             
+                            U2[0] = Rho_Plane[iPlane][iPoint];
+                            U2[1] = RhoUx_Plane[iPlane][iPoint];
+                            U2[2] = RhoUy_Plane[iPlane][iPoint];
+                            U2[3] = RhoUz_Plane[iPlane][iPoint];
+                            U2[4] = RhoE_Plane[iPlane][iPoint];
                         }
                         
                         /*--- Find a point on the planar grid that is third closest to this point on the radial grid ---*/
-                        else if(dist >= d3) {
+                        else if(dist <= d3) {
                             d3 = dist;
                             x3 = Xcoord_Plane[iPlane][iPoint];
                             y3 = Ycoord_Plane[iPlane][iPoint];
                             z3 = Zcoord_Plane[iPlane][iPoint];
-                            //   Pr3   = Pressure_Plane[iPlane][iPoint];
-                            //   temp3 = Temperature_Plane[iPlane][iPoint];
-                            U3 = U_Plane[iPlane][iPoint];
+                            Pt3 = iPoint;
+                            
+                            U3[0] = Rho_Plane[iPlane][iPoint];
+                            U3[1] = RhoUx_Plane[iPlane][iPoint];
+                            U3[2] = RhoUy_Plane[iPlane][iPoint];
+                            U3[3] = RhoUz_Plane[iPlane][iPoint];
+                            U3[4] = RhoE_Plane[iPlane][iPoint];
                             
                         }
-                        
                     }
                     
                     /*--- Find planes fitting the profiles of pressure and temperatures on the three points, and pass it through the  point on the radial grid. ---*/
                     
-                    ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
-                    a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
-                    a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
-                    a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
+                    if ( fabs(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2) < EPS) {
+                        for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                            U_iPoint[iVar] = (d1*U1[iVar] + d2*U2[iVar] + d3*U3[iVar])/(d1 +d2 + d3 +EPS);
+                        }
+                        
+                    }
+                    else{
+                        ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
+                        a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
+                        a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
+                        a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
+                        
+                        for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                            a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
+                            b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
+                            c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
+                            U_iPoint[iVar] = a*y + b*z + c;
+                        }
+                    }
                     
-                    for (unsigned short iVar; iVar < nVar; iVar++) {
-                        a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
-                        b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
-                        c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
-                        U_i[iVar] = a*y + b*z + c;
+                    
+                    if (d1 < 1E-12) {
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U_iPoint[iVar] = U1[iVar];
+                    }
+                    if (d2 < 1E-12) {
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U_iPoint[iVar] = U2[iVar];
+                    }
+                    if (d3 < 1E-12) {
+                        for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                            U_iPoint[iVar] = U3[iVar];
                     }
                     
                     /*--- Store these values of Pressure and Temperature, which will be needed to calculate electrical conductivity ---*/
-                    U_Radial[iPlane+1].push_back(U_i);
+                    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                        U_Radial[iPlane+1][icount][iVar] = U_iPoint[iVar];       
+                    }                    
+                    
                 }
             }
         }
         
         
+        icount = -1;
         for (iPt_theta = 0; iPt_theta < nPt_theta; iPt_theta ++){ 
             theta = iPt_theta*dtheta;
             iter_0 = (iPt_theta == 0) ? 0 : 1;
@@ -3088,14 +3224,14 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
                 r = iPt_r*dr;
                 y = r*cos(theta); 
                 z = r*sin(theta);
-                x = MaxPlane + 2.0;
+                x = 12.0;
+                icount ++;
                 
                 Xcoord_Radial[nPlane+1].push_back(x); 
                 Ycoord_Radial[nPlane+1].push_back(y);              
                 Zcoord_Radial[nPlane+1].push_back(z);
                 
-                d1 = -1.0; d2 = -1.0; d3 = -1.0;
-                
+                d1 = 1E16; d2 = 1E16; d3 = 1E16;
                 
                 for (iPoint = 0; iPoint <  nPointDomain; iPoint++) {
                     
@@ -3106,47 +3242,69 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
                                     (z- Coord[2])*(z- Coord[2]));
                         
                         /*--- Find a point on the planar grid that is closest to this point on the radial grid ---*/
-                        if (dist >= d1)     {
+                        if (dist <= d1)     {
                             d1 = dist; x1 = Coord[0]; y1 = Coord[1]; z1 = Coord[2];
-                            U1 = node[iPoint]->GetSolution();
+                            for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                                U1[iVar] = node[iPoint]->GetSolution(iVar);
                         }
                         
                         /*--- Find a point on the planar grid that is second closest to this point on the radial grid ---*/
-                        else if(dist >= d2) {
+                        else if(dist <= d2) {
                             d2 = dist; x2 = Coord[0]; y2 = Coord[1]; z2 = Coord[2];
-                            U2 = node[iPoint]->GetSolution();                        
-                        }
+                            for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                                U2[iVar] = node[iPoint]->GetSolution(iVar);                        }
                         
                         /*--- Find a point on the planar grid that is third closest to this point on the radial grid ---*/
-                        else if(dist >= d3) {
+                        else if(dist <= d3) {
                             d3 = dist; x3 = Coord[0]; y3 = Coord[1]; z3 = Coord[2];
-                            U3 = node[iPoint]->GetSolution();
-                            
-                        }
-                        
+                            for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                                U3[iVar] = node[iPoint]->GetSolution(iVar);                            
+                        }         
                     }
                 }
                 
                 /*--- Find planes fitting the profiles of pressure and temperatures on the three points, and pass it through the  point on the radial grid. ---*/
                 
-                ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
-                a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
-                a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
-                a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
+                if ( fabs(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2) < EPS) {
+                    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                        U_iPoint[iVar] = (d1*U1[iVar] + d2*U2[iVar] + d3*U3[iVar])/(d1 +d2 + d3 +EPS);
+                    }
+                    
+                }
+                else{
+                    ooDen  = 1.0/(y1*z2 - y2*z1 - y1*z3 + y3*z1 + y2*z3 - y3*z2 + EPS);                    
+                    a11 =  (z2 - z3);       a12 = -(z1 - z3);        a13 =  (z1 - z2);
+                    a21 = -(y2 - y3);       a22 =  (y1 - y3);        a23 = -(y1 - y2);
+                    a31 =  (y2*z3 - y3*z2); a32 = -(y1*z3 - y3*z1);  a33 =  (y1*z2 - y2*z1);
+                    
+                    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                        a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
+                        b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
+                        c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
+                        U_iPoint[iVar] = a*y + b*z + c;
+                    }
+                }
                 
-                for (unsigned short iVar; iVar < nVar; iVar++) {
-                    a = (a11*U1[iVar] + a12*U2[iVar] + a13*U3[iVar])*ooDen;
-                    b = (a21*U1[iVar] + a22*U2[iVar] + a23*U3[iVar])*ooDen;
-                    c = (a31*U1[iVar] + a32*U2[iVar] + a33*U3[iVar])*ooDen;
-                    U_i[iVar] = a*y + b*z + c;
+                if (d1 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U1[iVar];
+                }
+                if (d2 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U2[iVar];
+                }
+                if (d3 < 1E-12) {
+                    for(unsigned short iVar = 0; iVar < nVar; iVar++)
+                        U_iPoint[iVar] = U3[iVar];
                 }
                 
                 /*--- Store these values of Pressure and Temperature, which will be needed to calculate electrical conductivity ---*/
-                U_Radial[nPlane+1].push_back(U_i);
+                for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+                    U_Radial[nPlane+1][icount][iVar] = U_iPoint[iVar];       
+                }                
                 
             }
         }
-        
         
         delete [] Xcoord_Plane; delete [] Ycoord_Plane; delete [] Zcoord_Plane;
         delete [] Index_iPoint; delete [] Index_jPoint;
@@ -3157,9 +3315,11 @@ void CEulerSolver::Plane_Sections(CGeometry *geometry, CConfig *config) {
         }
         delete [] Plane_P0;
         delete [] Plane_Normal;
-        
+        delete [] Rho_Plane; delete [] RhoUx_Plane; delete [] RhoUy_Plane;
+delete [] RhoUz_Plane; delete [] RhoE_Plane; 
     }
     
+    delete [] U_iPoint; delete [] U1; delete [] U2;  delete [] U3;
     
 }
 
@@ -4481,13 +4641,23 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
     bool viscous              = config->GetViscous();
     bool freesurface = config->GetFreeSurface();
     bool gravity = (config->GetGravityForce());
-    
     if (incompressible) nPrimVar = nDim+2;
     else nPrimVar = nDim+3;
-    
+    bool jouleheating = config->GetJouleHeating();
     double *U_domain = new double[nVar];      double *U_inlet = new double[nVar];
     double *V_domain = new double[nPrimVar];  double *V_inlet = new double[nPrimVar];
     double *Normal = new double[nDim];
+    double *Coord = new double[nDim];
+    
+    double sigma, Gaussf,Gaussc, mu, rad;
+    
+    if (jouleheating) {
+        mu = 0.0; 
+        sigma = sqrt(0.0074);
+        Gaussc = 1.0;//(sigma*sqrt(2*PI_NUMBER));
+    }
+    
+    
     
     /*--- Loop over all the vertices on this boundary marker ---*/
     for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
@@ -4511,6 +4681,12 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
             for (iDim = 0; iDim < nDim; iDim++)
                 UnitaryNormal[iDim] = Normal[iDim]/Area;
             
+            Coord = geometry->node[iPoint]->GetCoord();
+            
+            if (jouleheating) {
+                rad = sqrt(Coord[1]*Coord[1] + Coord[2]*Coord[2]);
+                Gaussf = Gaussc* exp(-(rad-mu)*(rad-mu)/(2*sigma*sigma));
+            }
             /*--- Retrieve solution at this boundary node ---*/
             for (iVar = 0; iVar < nVar; iVar++) U_domain[iVar] = node[iPoint]->GetSolution(iVar);
             for (iVar = 0; iVar < nPrimVar; iVar++) V_domain[iVar] = node[iPoint]->GetPrimVar(iVar);
@@ -4555,6 +4731,11 @@ void CEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
                         else P_Total  = config->GetInlet_Ptotal(Marker_Tag);
                         T_Total  = config->GetInlet_Ttotal(Marker_Tag);
                         Flow_Dir = config->GetInlet_FlowDir(Marker_Tag);
+                        
+                        if (jouleheating) {
+                            T_Total = T_Total * Gaussf;
+                            P_Total = P_Total * Gaussf;
+                        }
                         
                         /*--- Non-dim. the inputs if necessary. ---*/
                         P_Total /= config->GetPressure_Ref();
@@ -6720,6 +6901,12 @@ CNSSolver::CNSSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
         (config->GetKind_Upwind_Flow() == ROE_TURKEL_1ST)) roe_turkel = true;
     else roe_turkel = false;
     
+    jouleheating = false;
+    if (config->GetJouleHeating()) { 
+        jouleheating = true;  
+        nPlane    = config->GetNoOfPlanes();    // Maximum number of planes 
+    }
+    
     /*--- MPI solution ---*/
     Set_MPI_Solution(geometry, config);
     
@@ -6752,6 +6939,19 @@ CNSSolver::~CNSSolver(void) {
         delete [] CSkinFriction;
     }
     
+    if (jouleheating) {
+        
+        delete [] Xcoord_Radial;
+        delete [] Ycoord_Radial;
+        delete [] Zcoord_Radial;
+        
+        for (unsigned short iPlane = 0; iPlane < nPlane + 2; iPlane ++) {
+            delete [] U_Radial[iPlane];
+        }
+        delete [] U_Radial;
+ 
+    }
+    
 }
 
 void CNSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem) {
@@ -6776,7 +6976,7 @@ void CNSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, C
     GetNacelle_Properties(geometry, config, iMesh);
     
     /*--- Compute Joule heating ---*/
-    //if (jouleheating) geometry->SetGeometryPlanes(config);
+    if(jouleheating) Plane_Sections(geometry, config);
     
     for (iPoint = 0; iPoint < nPoint; iPoint ++) {
         
@@ -6799,7 +6999,9 @@ void CNSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, C
         /*--- Initialize the convective, source and viscous residual vector ---*/
         LinSysRes.SetBlock_Zero(iPoint);
         
+        
     }
+    
     
     /*--- Upwind second order reconstruction ---*/
     if ((upwind_2nd) && (iMesh == MESH_0)) {

@@ -488,6 +488,18 @@ public:
 	 * \param[in] Value of the magnetic field
 	 */
 	virtual void SetMagneticField(double* val_B);
+    
+	/*!
+	 * \brief Set the value of the Joule Heating
+	 * \param[in] Value of the Joule Heating
+	 */
+    virtual void SetJouleHeat(double val_Joule);
+    
+	/*!
+	 * \brief Get the value of the Joule Heating
+	 * \param[out] Value of the Joule Heating
+	 */
+    virtual double GetJouleHeat();
 
 	/*!
 	 * \brief Set the value of the time step.
@@ -1766,7 +1778,7 @@ protected:
 	double *TS_Source;		/*!< \brief Time spectral source term. */
 	double Precond_Beta;	/*!< \brief Low Mach number preconditioner value, Beta. */
 	double *B_Field;		/*! < \brief Magnetic field value */
-
+    double JouleHeat;       /*! < \brief Joule Heating value */
 	/*--- Primitive variable definition ---*/
 	double *Primitive;	/*!< \brief Primitive variables (T,vx,vy,vz,P,rho,h,c) in compressible flows. */
 	double **Gradient_Primitive;	/*!< \brief Gradient of the primitive variables (T,vx,vy,vz,P,rho). */ 
@@ -2056,6 +2068,19 @@ public:
 	 * \param[in] Value of the magnetic field
 	 */
 	void SetMagneticField(double* val_B);
+    
+	/*!
+	 * \brief Set the value of the Joule Heating
+	 * \param[in] Value of the Joule Heating
+	 */
+    void SetJouleHeat(double val_Joule);
+
+	/*!
+	 * \brief Get the value of the Joule Heating
+	 * \param[out] Value of the Joule Heating
+	 */
+    double GetJouleHeat();
+    
 };
 
 /*! 

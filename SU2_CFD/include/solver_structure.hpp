@@ -1803,14 +1803,15 @@ protected:
 	bool space_centered,  /*!< \brief True if space centered scheeme used. */
 	euler_implicit,			/*!< \brief True if euler implicit scheme used. */
 	roe_turkel,         /*!< \brief True if computing preconditioning matrix for roe-turkel method. */
+	jouleheating,         /*!< \brief True if including joule heating. */
 	least_squares;        /*!< \brief True if computing gradients by least squares. */
 	double Gamma;									/*!< \brief Fluid's Gamma constant (ratio of specific heats). */
 	double Gamma_Minus_One;				/*!< \brief Fluids's Gamma - 1.0  . */
-    vector<double*> *U_Radial;
+    double ***U_Radial;
     vector<double> *Xcoord_Radial;
     vector<double> *Ycoord_Radial;
     vector<double> *Zcoord_Radial;
-
+    unsigned short nPlane;
 public:
     
 	/*!

@@ -98,7 +98,7 @@ void CMultiGridIntegration::MultiGrid_Cycle(CGeometry ***geometry, CSolver ****s
             
 			/*--- Send-Receive boundary conditions, and preprocessing ---*/
 			solver_container[iZone][iMesh][SolContainer_Position]->Preprocessing(geometry[iZone][iMesh], solver_container[iZone][iMesh], config[iZone], iMesh, iRKStep, RunTime_EqSystem);
-            
+
 			if (iRKStep == 0) {
                 
 				/*--- Set the old solution ---*/
@@ -130,6 +130,7 @@ void CMultiGridIntegration::MultiGrid_Cycle(CGeometry ***geometry, CSolver ****s
         
 		/*--- Compute $r_k = P_k + F_k(u_k)$ ---*/
 		solver_container[iZone][iMesh][SolContainer_Position]->Preprocessing(geometry[iZone][iMesh], solver_container[iZone][iMesh], config[iZone], iMesh, NO_RK_ITER, RunTime_EqSystem);
+
 		Space_Integration(geometry[iZone][iMesh], solver_container[iZone][iMesh], numerics_container[iZone][iMesh][SolContainer_Position], config[iZone], iMesh, NO_RK_ITER, RunTime_EqSystem);
 		SetResidual_Term(geometry[iZone][iMesh], solver_container[iZone][iMesh][SolContainer_Position]);
         
@@ -162,9 +163,9 @@ void CMultiGridIntegration::MultiGrid_Cycle(CGeometry ***geometry, CSolver ****s
                 case EULER_EXPLICIT: case EULER_IMPLICIT: iRKLimit = 1; break; }
             
 			for (iRKStep = 0; iRKStep < iRKLimit; iRKStep++) {
-                
+
 				solver_container[iZone][iMesh][SolContainer_Position]->Preprocessing(geometry[iZone][iMesh], solver_container[iZone][iMesh], config[iZone], iMesh, iRKStep, RunTime_EqSystem);
-                
+
 				if (iRKStep == 0) {
 					solver_container[iZone][iMesh][SolContainer_Position]->Set_OldSolution(geometry[iZone][iMesh]);
 					solver_container[iZone][iMesh][SolContainer_Position]->SetTime_Step(geometry[iZone][iMesh], solver_container[iZone][iMesh], config[iZone], iMesh, Iteration);
@@ -683,10 +684,10 @@ void CSingleGridIntegration::SingleGrid_Iteration(CGeometry ***geometry, CSolver
     double monitor = 0.0;
     
 	unsigned short SolContainer_Position = config[iZone]->GetContainerPosition(RunTime_EqSystem);
-    
+
 	/*--- Preprocessing ---*/
 	solver_container[iZone][MESH_0][SolContainer_Position]->Preprocessing(geometry[iZone][MESH_0], solver_container[iZone][MESH_0], config[iZone], MESH_0, 0, RunTime_EqSystem);
-    
+
     /*--- Set the old solution ---*/
     solver_container[iZone][MESH_0][SolContainer_Position]->Set_OldSolution(geometry[iZone][MESH_0]);
     

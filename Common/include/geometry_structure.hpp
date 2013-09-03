@@ -97,6 +97,7 @@ protected:
   unsigned long Max_GlobalPoint;  /*!< \brief Greater global point in the domain local structure. */
 
 public:
+    unsigned long *nElem_Bound_Storage;
 	unsigned long *nElem_Bound;			/*!< \brief Number of elements of the boundary. */
 	string *Tag_to_Marker;	/*!< \brief If you know the index of the boundary (depend of the 
 							 grid definition), it gives you the maker (where the boundary 
