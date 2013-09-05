@@ -1545,10 +1545,11 @@ void COutput::MergeSolution(CConfig *config, CGeometry *geometry, CSolver **solv
   
 	/*--- Local variables needed on all processors ---*/
 	unsigned short Kind_Solver  = config->GetKind_Solver();
+    	unsigned short Kind_Turb_Model  = config->GetKind_Turb_Model();
 	unsigned short iVar, jVar, iSpecies, FirstIndex = NONE, SecondIndex = NONE, ThirdIndex = NONE;
 	unsigned short nVar_First = 0, nVar_Second = 0, nVar_Third = 0, iVar_Eddy = 0;
 	unsigned short iVar_GridVel = 0, iVar_PressMach = 0, iVar_Density = 0, iVar_TempLam = 0,
-  iVar_Tempv = 0,iVar_MagF = 0, iVar_EF =0, iVar_Temp = 0, iVar_Lam =0, iVar_Mach = 0, iVar_Press = 0,
+  iVar_Tempv = 0,iVar_MagF = 0, iVar_EF =0, iVar_Temp = 0, iVar_Lam =0, iVar_Mach = 0, iVar_Press = 0, iVar_Full_Rans = 0,
   iVar_ViscCoeffs = 0, iVar_Sens = 0, iVar_Coords = 0;
   
 	unsigned long iPoint = 0, jPoint = 0, iVertex = 0, iMarker = 0;
@@ -1562,7 +1563,8 @@ void COutput::MergeSolution(CConfig *config, CGeometry *geometry, CSolver **solv
                          config->GetGrid_Movement()));
 	bool incompressible = config->GetIncompressible();
   bool transition = (config->GetKind_Trans_Model()==LM);
-  
+    bool Wrt_Full_Rans = (config->GetWrt_Full_Rans());
+    
 	if (Kind_Solver == AEROACOUSTIC_EULER) {
 		if (val_iZone == ZONE_0) Kind_Solver = EULER;
 		if (val_iZone == ZONE_1) Kind_Solver = WAVE_EQUATION;
@@ -1676,6 +1678,11 @@ void COutput::MergeSolution(CConfig *config, CGeometry *geometry, CSolver **solv
 		/*--- Eddy Viscosity ---*/
 		iVar_Eddy = nVar_Total;
 		nVar_Total += 1;
+        
+        if ((Wrt_Full_Rans) && (Kind_Turb_Model == SA)){
+            iVar_Full_Rans = nVar_Total;
+            nVar_Total += 1;
+        }
 	}
   
 	if (Kind_Solver == ELECTRIC_POTENTIAL) {
@@ -1895,20 +1902,23 @@ void COutput::MergeSolution(CConfig *config, CGeometry *geometry, CSolver **solv
             Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetLaminarViscosityInc(); jVar++;
             Data[jVar][jPoint] = Aux_Frict[iPoint]; jVar++;
             Data[jVar][jPoint] = Aux_Heat[iPoint];  jVar++;
-            Data[jVar][jPoint] = Aux_yPlus[iPoint]; jVar++;
+              Data[jVar][jPoint] = Aux_yPlus[iPoint]; jVar++;
           } else {
-            Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetPressure(incompressible); jVar++;
-            Data[jVar][jPoint] = Aux_Press[iPoint]; jVar++;
-            Data[jVar][jPoint] = sqrt(solver[FLOW_SOL]->node[iPoint]->GetVelocity2())/
-            solver[FLOW_SOL]->node[iPoint]->GetSoundSpeed(); jVar++;
-            Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetTemperature(); jVar++;
-            Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetLaminarViscosity(); jVar++;
-            Data[jVar][jPoint] = Aux_Frict[iPoint]; jVar++;
-            Data[jVar][jPoint] = Aux_Heat[iPoint];  jVar++;
-            Data[jVar][jPoint] = Aux_yPlus[iPoint]; jVar++;
+              Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetPressure(incompressible); jVar++;
+              Data[jVar][jPoint] = Aux_Press[iPoint]; jVar++;
+              Data[jVar][jPoint] = sqrt(solver[FLOW_SOL]->node[iPoint]->GetVelocity2())/
+              solver[FLOW_SOL]->node[iPoint]->GetSoundSpeed(); jVar++;
+              Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetTemperature(); jVar++;
+              Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetLaminarViscosity(); jVar++;
+              Data[jVar][jPoint] = Aux_Frict[iPoint]; jVar++;
+              Data[jVar][jPoint] = Aux_Heat[iPoint];  jVar++;
+              Data[jVar][jPoint] = Aux_yPlus[iPoint]; jVar++;
           }
-          Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetEddyViscosity(); jVar++;
-          break;
+              Data[jVar][jPoint] = solver[FLOW_SOL]->node[iPoint]->GetEddyViscosity(); jVar++;
+              if ((Wrt_Full_Rans) && (Kind_Turb_Model == SA)){
+                  Data[jVar][jPoint] = solver[TURB_SOL]->node[iPoint]->GetGradient(0, 0); jVar++;
+              }
+              break;
           /*--- Write electric field. ---*/
         case ELECTRIC_POTENTIAL:
           for (unsigned short iDim = 0; iDim < geometry->GetnDim(); iDim++) {
@@ -3090,11 +3100,14 @@ void COutput::SetRestart(CConfig *config, CGeometry *geometry, unsigned short va
 	char buffer[50];
 	unsigned short Kind_ObjFunc = config->GetKind_ObjFunc();
   unsigned short Kind_Solver  = config->GetKind_Solver();
+    unsigned short Kind_Turb_Model  = config->GetKind_Turb_Model();
+
   bool grid_movement = ((config->GetUnsteady_Simulation() &&
                          config->GetWrt_Unsteady() &&
                          config->GetGrid_Movement()) ||
                         ((config->GetUnsteady_Simulation() == TIME_SPECTRAL) &&
                          config->GetGrid_Movement()));
+    bool Wrt_Full_Rans = (config->GetWrt_Full_Rans());
   
 	/*--- Retrieve filename from config ---*/
 	if (config->GetAdjoint())
@@ -3206,6 +3219,10 @@ void COutput::SetRestart(CConfig *config, CGeometry *geometry, unsigned short va
 
   if ((Kind_Solver == RANS) || (Kind_Solver == FREE_SURFACE_RANS)) {
     restart_file << ", \"Eddy_Viscosity\"";
+      if ((Wrt_Full_Rans) && (Kind_Turb_Model == SA)){
+          restart_file << ", \"Fake_Data\"";
+      }
+      
   }
 
   if ((Kind_Solver == PLASMA_EULER) || (Kind_Solver == PLASMA_NAVIER_STOKES)) {

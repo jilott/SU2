@@ -902,6 +902,8 @@ inline string CConfig::GetMotion_FileName(void) { return Motion_Filename; }
 
 inline bool CConfig::GetWrt_Vol_Sol(void) { return Wrt_Vol_Sol; }
 
+inline bool CConfig::GetWrt_Full_Rans(void) { return Wrt_Full_Rans; }
+
 inline bool CConfig::GetWrt_Srf_Sol(void) { return Wrt_Srf_Sol; }
 
 inline bool CConfig::GetWrt_Csv_Sol(void) { return Wrt_Csv_Sol; }

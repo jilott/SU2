@@ -591,6 +591,8 @@ private:
 	**Velocity_FreeStreamND_Time,
 	*Energy_FreeStreamND_Time,
 	*Mach_Inf_Time;
+    
+    bool Wrt_Full_Rans; /*!< \brief Output all of the variables needed to compute the turbulence model. */
 
 	map<string, CAnyOptionRef*> param; /*!< \brief associates option names (strings) with options */
 
@@ -1721,6 +1723,12 @@ public:
 	 */
 	bool GetWrt_Vol_Sol(void);
 
+    /*!
+	 * \brief Get information about writing a full rans solution file.
+	 * \return <code>TRUE</code> means that a full rans solution file will be written.
+	 */
+	bool GetWrt_Full_Rans(void);
+    
 	/*!
 	 * \brief Get information about writing a surface solution file.
 	 * \return <code>TRUE</code> means that a surface solution file will be written.

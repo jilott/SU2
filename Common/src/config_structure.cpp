@@ -669,6 +669,8 @@ CConfig::CConfig(char case_filename[200], unsigned short val_software, unsigned 
 	AddSpecialOption("WRT_RESIDUALS", Wrt_Residuals, SetBoolOption, false);
   /* DESCRIPTION: Output the rind layers in the solution files */
 	AddSpecialOption("WRT_HALO", Wrt_Halo, SetBoolOption, false);
+    /* DESCRIPTION: Write the full Rans turbulence model variables */
+	AddSpecialOption("WRT_FULL_RANS", Wrt_Full_Rans, SetBoolOption, false);
 
 	/*--- options related to the equivalent area ---*/
 	/* CONFIG_CATEGORY: Equivalent Area */
