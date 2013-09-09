@@ -656,7 +656,6 @@ void Numerics_Preprocessing(CNumerics ****numerics_container, CSolver ***solver_
 		nDiatomics  = solver_container[MESH_0][PLASMA_SOL]->GetnDiatomics();
 		nMonatomics = solver_container[MESH_0][PLASMA_SOL]->GetnMonatomics();
 	}
-	if (levelset)		nVar_LevelSet = solver_container[MESH_0][LEVELSET_SOL]->GetnVar();
 	if (wave)				nVar_Wave = solver_container[MESH_0][WAVE_SOL]->GetnVar();
 	if (fea)				nVar_FEA = solver_container[MESH_0][FEA_SOL]->GetnVar();
 

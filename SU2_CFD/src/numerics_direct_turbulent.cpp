@@ -532,7 +532,7 @@ void CAvgGradCorrected_TurbSST::ComputeResidual(double *val_residual, double **J
 CSourcePieceWise_TurbSA::CSourcePieceWise_TurbSA(unsigned short val_nDim, unsigned short val_nVar,
                                                  CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
   
-	incompressible = config->GetIncompressible();
+	incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
 	transition     = (config->GetKind_Trans_Model() == LM);
   transition = false; // Debugging, -AA
   rotating_frame = config->GetRotating_Frame();

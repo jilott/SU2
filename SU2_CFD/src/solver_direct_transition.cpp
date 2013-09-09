@@ -399,7 +399,7 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 	  numerics->SetVolume(geometry->node[iPoint]->GetVolume());
 
 	  /*--- Set distance to the surface ---*/
-	  numerics->SetDistance(geometry->node[iPoint]->GetWallDistance(), 0.0);
+	  numerics->SetDistance(geometry->node[iPoint]->GetWall_Distance(), 0.0);
 
 	  /*--- Set distance to the surface ---*/
 	  boundary = geometry->node[iPoint]->GetBoundary();
@@ -495,7 +495,7 @@ unsigned short iVar, iDim, Kind_Inlet = config->GetKind_Inlet();
   
   bool rotating_frame = config->GetRotating_Frame();
   bool grid_movement  = config->GetGrid_Movement();
-  bool incompressible = config->GetIncompressible();
+  bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   string Marker_Tag = config->GetMarker_All_Tag(val_marker);
   
   double *Coord;
@@ -717,11 +717,6 @@ unsigned short iVar, iDim, Kind_Inlet = config->GetKind_Inlet();
       if (incompressible)
         conv_numerics->SetDensityInc(solver_container[FLOW_SOL]->node[iPoint]->GetDensityInc(),
                                    solver_container[FLOW_SOL]->node[iPoint]->GetDensityInc());
-      if (rotating_frame) {
-        conv_numerics->SetRotVel(geometry->node[iPoint]->GetRotVel(),
-                               geometry->node[iPoint]->GetRotVel());
-        conv_numerics->SetRotFlux(-geometry->vertex[val_marker][iVertex]->GetRotFlux());
-      }
       if (grid_movement)
         conv_numerics->SetGridVel(geometry->node[iPoint]->GetGridVel(),
                                 geometry->node[iPoint]->GetGridVel());
@@ -779,8 +774,7 @@ void CTransLMSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container, 
   unsigned long iPoint, iVertex, Point_Normal;
   unsigned short iVar, iDim;
   
-  bool incompressible = config->GetIncompressible();
-  bool rotating_frame = config->GetRotating_Frame();
+  bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   bool grid_movement  = config->GetGrid_Movement();
   
   double *Normal = new double[nDim];
@@ -821,11 +815,6 @@ void CTransLMSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container, 
       if (incompressible)
         conv_numerics->SetDensityInc(solver_container[FLOW_SOL]->node[iPoint]->GetDensityInc(),
                                    solver_container[FLOW_SOL]->node[iPoint]->GetDensityInc());
-      if (rotating_frame) {
-        conv_numerics->SetRotVel(geometry->node[iPoint]->GetRotVel(),
-                               geometry->node[iPoint]->GetRotVel());
-        conv_numerics->SetRotFlux(-geometry->vertex[val_marker][iVertex]->GetRotFlux());
-      }
       if (grid_movement)
         conv_numerics->SetGridVel(geometry->node[iPoint]->GetGridVel(),
                                 geometry->node[iPoint]->GetGridVel());

@@ -490,8 +490,9 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 	double prod, des;
 	double f_lambda, re_theta, rey, re_theta_lim, r_t, mach;
-	double Velocity_Mag = 0.0, du_ds, theta, lambda, time_scale, var1, f_theta;
+	double Velocity_Mag = 0.0, du_ds, delta, theta, lambda, time_scale, var1, f_theta;
 	double theta_bl, f_reattach;
+  double delta_bl, f_wake;
 	double dU_dx, dU_dy, dU_dz;
 
 	//SU2_CPP2C COMMENT START
