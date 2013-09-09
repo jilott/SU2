@@ -27,7 +27,7 @@
 
 import os, time, sys, pickle, errno, copy
 import shutil, glob
-from ..util import ordered_bunch
+from SU2.util import ordered_bunch
 
 # -------------------------------------------------------------------
 #  Read SU2_GPC Gradient Values
@@ -56,6 +56,74 @@ def read_gradients( Grad_filename , scale = 1.0):
 #: def read_gradients()
 
 
+# -------------------------------------------------------------------
+#  Read All Data from a Plot File
+# -------------------------------------------------------------------
+
+def read_plot( filename ):
+    """ reads a plot file
+        returns an ordered bunch with the headers for keys
+        and a list of each header's floats for values.
+    """
+    
+    extension = os.path.splitext( filename )[1]
+    
+    # open history file
+    plot_file = open(filename)
+    
+    # title?
+    line = plot_file.readline()
+    if line.startswith('TITLE'):
+        title = line.split('=')[1] .strip() # not used right now
+        line = plot_file.readline()
+
+    # process header
+    if '=' in line:
+        line = line.split("=")[1].strip()
+    line = line.split(",")
+    Variables = [ x.strip('" ') for x in line ]
+    n_Vars = len(Variables)
+    
+    # initialize plot data dictionary
+    plot_data = ordered_bunch.fromkeys(Variables)
+    # must default each value to avoid pointer problems
+    for key in plot_data.keys(): plot_data[key] = [] 
+    
+    # zone list
+    zones = []
+        
+    # read all data rows
+    while 1:
+        # read line
+        line = plot_file.readline()
+        if not line:
+            break
+        
+        #zone?
+        if line.startswith('ZONE'):
+            zone = line.split('=')[1].strip('" ')
+            zones.append(zone)
+            continue
+        
+        # split line
+        line_data = line.strip().split(',')
+        line_data = [ float(x.strip()) for x in line_data ]  
+        
+        # store to dictionary
+        for i_Var in range(n_Vars):
+            this_variable = Variables[i_Var] 
+            plot_data[this_variable] = plot_data[this_variable] + [ line_data[i_Var] ]
+    
+    #: for each line
+
+    # check for number of zones
+    if len(zones) > 1:
+        raise IOError , 'multiple zones not supported'
+    
+    # done
+    plot_file.close()              
+    return plot_data
+
 
 # -------------------------------------------------------------------
 #  Read All Data from History File
@@ -71,56 +139,23 @@ def read_history( History_filename ):
         respectively.
     """
     
-    extension = os.path.splitext( History_filename )[1]
+    # read plot file
+    plot_data = read_plot( History_filename )
     
-    # open history file
-    history_file = open(History_filename)
-    
-    # skip first line
-    line = history_file.readline()
-
-    # process header
-    if extension == '.plt':
-        line = history_file.readline()
-        line = line.split("=")[1].strip()
-    line = line.split(",")
-    Variables = [ x.strip('"') for x in line ]
-    n_Vars = len(Variables)
+    # initialize history data dictionary
+    history_data = ordered_bunch()    
     
     # header name to config file name map
-    map_dict = get_headerMap()
-        
+    map_dict = get_headerMap()    
+    
     # map header names
-    for i_Var in range(n_Vars):
-        this_variable = Variables[i_Var]
-        if map_dict.has_key(this_variable):
-            Variables[i_Var] = map_dict[this_variable]
+    for key in plot_data.keys():
+        if map_dict.has_key(key):
+            var = map_dict[key]
+        else:
+            var = key
+        history_data[var] = plot_data[key]
     
-    # start history data dictionary
-    history_data = ordered_bunch.fromkeys(Variables)
-    for key in history_data.keys(): history_data[key] = []
-    
-    # skip another line
-    line = history_file.readline()
-    
-    # read all data rows
-    while 1:
-        # read line
-        line = history_file.readline()
-        if not line:
-            break
-        
-        # split line
-        line_data = line.strip().split(',')
-        line_data = [ float(x.strip()) for x in line_data ]  
-        
-        # store to dictionary
-        for i_Var in range(n_Vars):
-            this_variable = Variables[i_Var] 
-            history_data[this_variable] = history_data[this_variable] + [ line_data[i_Var] ]
-    
-    # done
-    history_file.close()              
     return history_data
     
 #: def read_history()
@@ -189,9 +224,48 @@ optnames_aero = [ "LIFT"               ,
 #: optnames_aero
 
 # Geometric Optimizer Function Names
-optnames_geo = [ "MAX_THICKNESS"       ,
-                 "MIN_THICKNESS"       ,
-                 "TOTAL_VOLUME"         ]
+optnames_geo = [ "MAX_THICKNESS"      ,
+                 "1/4_THICKNESS"      ,
+                 "1/2_THICKNESS"      ,
+                 "3/4_THICKNESS"      ,
+                 "AREA"               ,
+                 "AOA"                ,
+                 "CHORD"              ,
+                 "MAX_THICKNESS_SEC1" ,
+                 "MAX_THICKNESS_SEC2" ,
+                 "MAX_THICKNESS_SEC3" ,
+                 "MAX_THICKNESS_SEC4" ,
+                 "MAX_THICKNESS_SEC5" ,
+                 "1/4_THICKNESS_SEC1" ,
+                 "1/4_THICKNESS_SEC2" ,
+                 "1/4_THICKNESS_SEC3" ,
+                 "1/4_THICKNESS_SEC4" ,
+                 "1/4_THICKNESS_SEC5" ,
+                 "1/2_THICKNESS_SEC1" ,
+                 "1/2_THICKNESS_SEC2" ,
+                 "1/2_THICKNESS_SEC3" ,
+                 "1/2_THICKNESS_SEC4" ,
+                 "1/2_THICKNESS_SEC5" ,
+                 "3/4_THICKNESS_SEC1" ,
+                 "3/4_THICKNESS_SEC2" ,
+                 "3/4_THICKNESS_SEC3" ,
+                 "3/4_THICKNESS_SEC4" ,
+                 "3/4_THICKNESS_SEC5" ,
+                 "AREA_SEC1"          ,
+                 "AREA_SEC2"          ,
+                 "AREA_SEC3"          ,
+                 "AREA_SEC4"          ,
+                 "AREA_SEC5"          ,
+                 "AOA_SEC1"           ,
+                 "AOA_SEC2"           ,
+                 "AOA_SEC3"           ,
+                 "AOA_SEC4"           ,
+                 "AOA_SEC5"           ,
+                 "CHORD_SEC1"         ,
+                 "CHORD_SEC2"         ,
+                 "CHORD_SEC3"         ,
+                 "CHORD_SEC4"         ,
+                 "CHORD_SEC5"          ]
 #: optnames_geo
 
 # -------------------------------------------------------------------
@@ -204,7 +278,7 @@ def read_aerodynamics( History_filename , special_cases=[] ):
         
         Outputs:
             dictionary with function keys and thier values
-            if special cases has 'WRT_UNSTEADY', returns time averaged data
+            if special cases has 'UNSTEADY_SIMULATION', returns time averaged data
             otherwise returns final value from history file
     """
     
@@ -221,7 +295,7 @@ def read_aerodynamics( History_filename , special_cases=[] ):
             Func_Values[this_objfun] = history_data[this_objfun] 
     
     # for unsteady cases, average time-accurate objective function values
-    if 'WRT_UNSTEADY' in special_cases:
+    if 'UNSTEADY_SIMULATION' in special_cases:
         for key,value in Func_Values.iteritems():
             Func_Values[key] = sum(value)/len(value)
     
@@ -587,10 +661,9 @@ def get_specialCases(config):
         specified in the config file, and set to 'yes'
     """
     
-    all_special_cases = [ 'FREE_SURFACE'       ,
-                          'ROTATING_FRAME'     ,
-                          'EQUIV_AREA'         ,
-                          'WRT_UNSTEADY'       ,
+    all_special_cases = [ 'FREE_SURFACE'        ,
+                          'ROTATING_FRAME'      ,
+                          'EQUIV_AREA'          ,
                           'AEROACOUSTIC_EULER'  ]
     
     special_cases = []
@@ -599,7 +672,10 @@ def get_specialCases(config):
             special_cases.append(key)
         if config.has_key('PHYSICAL_PROBLEM') and config['PHYSICAL_PROBLEM'] == key:
             special_cases.append(key)
-  
+            
+    if config.get('UNSTEADY_SIMULATION','NO') != 'NO':
+        special_cases.append('UNSTEADY_SIMULATION')
+     
     # no support for more than one special case (except for noise)
     if len(special_cases) > 1 and 'AEROACOUSTIC_EULER' not in special_cases:
         error_str = 'Currently cannot support ' + ' and '.join(special_cases) + ' at once'
@@ -611,6 +687,10 @@ def get_specialCases(config):
     # Special case for time-spectral
     if config.has_key('UNSTEADY_SIMULATION') and config['UNSTEADY_SIMULATION'] == 'TIME_SPECTRAL':
         special_cases.append('TIME_SPECTRAL')
+
+    # Special case for rotating frame
+    if config.has_key('GRID_MOVEMENT_KIND') and config['GRID_MOVEMENT_KIND'] == 'ROTATING_FRAME':
+        special_cases.append('ROTATING_FRAME')
 
     return special_cases
 
@@ -666,7 +746,6 @@ def expand_part(name,config):
         names = [name]
     return names
     
-    
 def make_link(src,dst):
     """ make_link(src,dst)
         makes a relative link
@@ -712,6 +791,14 @@ def restart2solution(config,state={}):
         direct or adjoint is read from config
         adjoint objective is read from config
     """
+    
+    if 'UNSTEADY_SIMULATION' in get_specialCases(config):
+        if state and config.MATH_PROBLEM == 'DIRECT' :
+            del state.FILES.DIRECT
+        elif state and config.MATH_PROBLEM == 'ADJOINT':
+            ADJ_NAME = 'ADJOINT_' + func_name
+            del state.FILES[ADJ_NAME]
+        return
     
     # direct solution
     if config.MATH_PROBLEM == 'DIRECT':

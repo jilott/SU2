@@ -230,6 +230,18 @@ inline void CNumerics::SetIntermittency(double intermittency_in) { }
 
 inline void CNumerics::SetGammaEff(double gamma_eff_in) {}
 
+inline void CNumerics::SetProduction(double val_production) { }
+
+inline void CNumerics::SetDestruction(double val_destruction) { }
+
+inline void CNumerics::SetCrossProduction(double val_crossproduction) { }
+
+inline double CNumerics::GetProduction(void) { return 0; }
+
+inline double CNumerics::GetDestruction(void) { return 0; }
+
+inline double CNumerics::GetCrossProduction(void) { return 0; }
+
 inline void CNumerics::SetTurbKineticEnergy(double val_turb_ke_i, double val_turb_ke_j) {
 	turb_ke_i = val_turb_ke_i;
 	turb_ke_j = val_turb_ke_j;
@@ -342,12 +354,15 @@ inline void CNumerics::SetGridVel(double *val_gridvel_i, double *val_gridvel_j) 
 	GridVel_j = val_gridvel_j;
 }
 
-inline void CNumerics::SetRotVel(double *val_rotvel_i, double *val_rotvel_j) {
-	RotVel_i = val_rotvel_i;
-	RotVel_j = val_rotvel_j;
+inline void CNumerics::SetWindGust(double *val_windgust_i, double *val_windgust_j) {
+	WindGust_i = val_windgust_i;
+	WindGust_j = val_windgust_j;
 }
 
-inline void CNumerics::SetRotFlux(double val_rot_flux) { Rot_Flux = val_rot_flux; }
+inline void CNumerics::SetWindGustDer(double *val_windgustder_i, double *val_windgustder_j) {
+	WindGustDer_i = val_windgustder_i;
+	WindGustDer_j = val_windgustder_j;
+}
 
 inline void CNumerics::SetPressure(double val_pressure_i, double val_pressure_j) {
 	Pressure_i = val_pressure_i;
@@ -525,6 +540,18 @@ inline void CSourcePieceWise_TurbSA::SetIntermittency(double intermittency_in) {
 
 inline void CSourcePieceWise_TurbSA::SetGammaEff(double gamma_eff_in) { gamma_eff = gamma_eff_in; }
 
+inline void CSourcePieceWise_TurbSA::SetProduction(double val_production) { Production = val_production; }
+
+inline void CSourcePieceWise_TurbSA::SetDestruction(double val_destruction) { Destruction = val_destruction; }
+
+inline void CSourcePieceWise_TurbSA::SetCrossProduction(double val_crossproduction) { CrossProduction = val_crossproduction; }
+
+inline double CSourcePieceWise_TurbSA::GetProduction(void) { return Production; }
+
+inline double CSourcePieceWise_TurbSA::GetDestruction(void) { return Destruction; }
+
+inline double CSourcePieceWise_TurbSA::GetCrossProduction(void) { return CrossProduction; }
+
 inline void CSourcePieceWise_Plasma::SetElecField(double *val_Efield) { ElectricField = val_Efield; }
 
 inline double* CSourcePieceWise_Plasma::GetMagneticField() { return JcrossB; }
@@ -542,14 +569,6 @@ inline double CSource_JouleHeating::GetElec_CondIntegral() {return Elec_Conduct*
 inline void CNumerics::SetElec_CondIntegralsqr(double val_var) {}
 
 inline void CSource_JouleHeating::SetElec_CondIntegralsqr(double val_var) {Integralsqr = val_var; }
-
-inline double CNumerics::GetKappaPsiVolume() {return 0;}
-
-inline double CSourceViscous_AdjFlow::GetKappaPsiVolume() { return kappapsi_Volume; }
-
-inline void CNumerics::SetKappaPsiVolume(double val_kappapsi_Volume) {}
-
-inline void CSourceViscous_AdjFlow::SetKappaPsiVolume(double val_kappapsi_Volume) { kappapsi_Volume = val_kappapsi_Volume;}
 
 inline void CNumerics::ComputeResidual(double **val_Jacobian_i, double *val_Jacobian_mui, double ***val_Jacobian_gradi, CConfig *config) { }
 

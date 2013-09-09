@@ -27,9 +27,8 @@
 CUpwLin_TransLM::CUpwLin_TransLM(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
   
 	implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
-	rotating_frame = config->GetRotating_Frame();
 	grid_movement  = config->GetGrid_Movement();
-	incompressible = config->GetIncompressible();
+	incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   
 	Gamma = config->GetGamma();
 	Gamma_Minus_One = Gamma - 1.0;
@@ -75,7 +74,6 @@ CUpwSca_TransLM::CUpwSca_TransLM(unsigned short val_nDim, unsigned short val_nVa
                                  CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
   
 	implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
-	rotating_frame = config->GetRotating_Frame();
 	grid_movement = config->GetGrid_Movement();
   
 	Gamma = config->GetGamma();
@@ -121,7 +119,7 @@ CAvgGrad_TransLM::CAvgGrad_TransLM(unsigned short val_nDim, unsigned short val_n
 	unsigned short iVar;
   
 	implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
-	incompressible = config->GetIncompressible();
+	incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   
 	Gamma = config->GetGamma();
 	Gamma_Minus_One = Gamma - 1.0;
@@ -360,7 +358,7 @@ CAvgGradCorrected_TransLM::CAvgGradCorrected_TransLM(unsigned short val_nDim, un
 	unsigned short iVar;
   
 	implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
-	incompressible = config->GetIncompressible();
+	incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
   
 	Gamma = config->GetGamma();
 	Gamma_Minus_One = Gamma - 1.0;
@@ -491,8 +489,8 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	double rey_tc, flen, re_v, strain, f_onset1,f_onset2,f_onset3,f_onset,f_turb,tu;
 
 	double prod, des;
-	double f_lambda, re_theta, rey, re_theta_lim, r_t, rey_t, mach;
-	double Velocity_Mag = 0.0, du_ds, theta, lambda, time_scale, delta_bl, delta, f_wake, var1, f_theta;
+	double f_lambda, re_theta, rey, re_theta_lim, r_t, mach;
+	double Velocity_Mag = 0.0, du_ds, theta, lambda, time_scale, var1, f_theta;
 	double theta_bl, f_reattach;
 	double dU_dx, dU_dy, dU_dz;
 

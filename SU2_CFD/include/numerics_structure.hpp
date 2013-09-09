@@ -29,6 +29,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <cstdlib>
 
 #include "../../Common/include/config_structure.hpp"
 #include "math_ad.hpp"
@@ -115,9 +116,6 @@ public:
 	Sensor_j;			/*!< \brief Pressure sensor at point j. */
 	double *GridVel_i,	/*!< \brief Grid velocity at point i. */
 	*GridVel_j;			/*!< \brief Grid velocity at point j. */
-	double *RotVel_i,	/*!< \brief Rotational velocity at point i. */
-	*RotVel_j;			/*!< \brief Rotational velocity at point j. */
-	double Rot_Flux; /*!< \brief Exact rotating volume flux for an edge. */
 	double *U_i,		/*!< \brief Vector of conservative variables at point i. */
 	*U_id,		/*!< \brief Vector of derivative of conservative variables at point i. */
   *UZeroOrder_i,  /*!< \brief Vector of conservative variables at point i without reconstruction. */
@@ -182,8 +180,8 @@ public:
 	unsigned short Neighbor_i,	/*!< \brief Number of neighbors of the point i. */
 	Neighbor_j;					/*!< \brief Number of neighbors of the point j. */
 	double *Normal,	/*!< \brief Normal vector, it norm is the area of the face. */
-	*UnitaryNormal,		/*!< \brief Unitary normal vector. */
-	*UnitaryNormald;		/*!< \brief derivatve of unitary normal vector. */
+	*UnitNormal,		/*!< \brief Unitary normal vector. */
+	*UnitNormald;		/*!< \brief derivatve of unitary normal vector. */
 	double TimeStep,		/*!< \brief Time step useful in dual time method. */
 	Area,				/*!< \brief Area of the face i-j. */
 	Volume;				/*!< \brief Volume of the control volume around point i. */
@@ -194,6 +192,10 @@ public:
 	*U_nM1,		/*!< \brief Vector of conservative variables at time n-1. */
 	*U_nP1;		/*!< \brief Vector of conservative variables at time n+1. */
 	double vel2_inf; /*!< \brief value of the square of freestream speed. */
+    double *WindGust_i,	/*!< \brief Wind gust at point i. */
+	*WindGust_j;			/*!< \brief Wind gust at point j. */
+    double *WindGustDer_i,	/*!< \brief Wind gust derivatives at point i. */
+	*WindGustDer_j;			/*!< \brief Wind gust derivatives at point j. */
 
 	/*! 
 	 * \brief Constructor of the class.
@@ -579,17 +581,6 @@ public:
 	 */
 	void SetEddyViscosity(double val_eddy_viscosity_i, double val_eddy_viscosity_j, unsigned short iSpecies);
 
-	/*!
-	 * \brief Calculate the eddy viscosity (used for AD).
-	 * \param[in] val_U_i - Value of the flow variables at point i.
-	 * \param[out] val_Ut_i - Value of the turbulence variables at point i.
-	 * \param[out] val_laminar_viscosity_i - Value of the laminar viscosity at point i.
-	 * \param[out] val_eddy_viscosity_i - Value of the eddy viscosity at point i.
-	 * \param[in] config - Definition of the particular problem.
-	 */
-	void CalcEddyViscosity(double *val_U_i, double *val_Ut_i, double val_laminar_viscosity_i,
-			double val_eddy_viscosity_i, CConfig *config);
-
 	/*! 
 	 * \brief Set the value of the distance from the nearest wall.
 	 * \param[in] val_dist_i - Value of of the distance from point i to the nearest wall.
@@ -629,20 +620,21 @@ public:
 	 */
 	void SetGridVel(double *val_gridvel_i, double *val_gridvel_j);
 
-	/*! 
-	 * \brief Set the velocity of the rotational framework.
-	 * \param[in] val_rotvel_i - Rotational frame velocity of the point i.
-	 * \param[in] val_rotvel_j - Rotational frame velocity of the point j.
+    /*!
+	 * \brief Set the wind gust value.
+	 * \param[in] val_windgust_i - Wind gust of the point i.
+	 * \param[in] val_windgust_j - Wind gust of the point j.
 	 */
-	void SetRotVel(double *val_rotvel_i, double *val_rotvel_j);
-
-	/*!
-	 * \brief Set the exact rotating volume flux.
-	 * \param[in] val_rot_flux - Exact rotating volume flux for an edge.
+	void SetWindGust(double *val_windgust_i, double *val_windgust_j);
+    
+    /*!
+	 * \brief Set the wind gust derivatives values.
+	 * \param[in] val_windgust_i - Wind gust derivatives of the point i.
+	 * \param[in] val_windgust_j - Wind gust derivatives of the point j.
 	 */
-	void SetRotFlux(double val_rot_flux);
-
-	/*! 
+	void SetWindGustDer(double *val_windgustder_i, double *val_windgustder_j);
+    
+    /*!
 	 * \brief Set the value of the pressure.
 	 * \param[in] val_pressure_i - Value of the pressure at point i.
 	 * \param[in] val_pressure_j - Value of the pressure at point j.
@@ -1467,18 +1459,32 @@ public:
 	 */
   virtual void SetGammaEff(double gamma_eff_in); 
 
-	/*!
-	 * \brief Get the kappapsi_Volume value for Hybrid coupling.
-	 * \return kappapsi_Volume - value of mean flow coupling term
-	 */
-	virtual double GetKappaPsiVolume();
-    
-    /*!
-	 * \brief Get the kappapsi_Volume value for Hybrid coupling.
-	 * \param[in] kappapsi_Volume - value of mean flow coupling term
-	 */
-	virtual void SetKappaPsiVolume(double val_kappapsi_Volume);
 
+  virtual void SetDestruction(double val_destruction);
+  
+  /*!
+	 * \brief Residual for source term integration.
+	 * \param[in] val_crossproduction - Value of the CrossProduction.
+	 */
+  virtual void SetCrossProduction(double val_crossproduction);
+  
+  /*!
+	 * \brief Residual for source term integration.
+	 * \param[in] val_production - Value of the Production.
+	 */
+  virtual double GetProduction(void);
+  
+  /*!
+	 * \brief Residual for source term integration.
+	 * \param[in] val_destruction - Value of the Destruction.
+	 */
+  virtual double GetDestruction(void);
+  
+  /*!
+	 * \brief Residual for source term integration.
+	 * \param[in] val_crossproduction - Value of the CrossProduction.
+	 */
+  virtual double GetCrossProduction(void);
 	/*!
 	 * \overload
 	 * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i
@@ -1505,7 +1511,7 @@ public:
  */
 class CUpwRoe_Flow : public CNumerics {
 private:
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 	double *Diff_U;
 	double *Velocity_i, *Velocity_j, *RoeVelocity;
 	double *Proj_flux_tensor_i, *Proj_flux_tensor_j;
@@ -1551,7 +1557,7 @@ public:
  */
 class CUpwRoePrim_Flow : public CNumerics {
 private:
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 	double *Diff_U;
 	double *Velocity_i, *Velocity_j, *RoeVelocity;
 	double *Proj_flux_tensor_i, *Proj_flux_tensor_j;
@@ -1597,7 +1603,7 @@ public:
  */
 class CUpwRoe_Turkel_Flow : public CNumerics {
 private:
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 	double *Diff_U;
 	double *Velocity_i, *Velocity_j, *RoeVelocity;
 	double *Proj_flux_tensor_i, *Proj_flux_tensor_j;
@@ -1707,7 +1713,7 @@ private:
 	double RoeDensity, RoeSoundSpeed, *RoeVelocity, *Lambda, *Velocity_i, *Velocity_j, **Proj_flux_tensor_i, **Proj_flux_tensor_j,
 	Proj_ModJac_Tensor_ij, **Proj_ModJac_Tensor, Energy_i, Energy_j, **P_Tensor, **invP_Tensor;
 	unsigned short iDim, iVar, jVar, kVar;
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 
 public:
 
@@ -1841,7 +1847,7 @@ public:
  */
 class CUpwRoe_Turkel_Plasma : public CNumerics {
 private:
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 	double *Diff_U;
 	double *Velocity_i, *Velocity_j, *RoeVelocity;
 	double *Proj_flux_tensor_i, *Proj_flux_tensor_j;
@@ -2291,7 +2297,7 @@ class CUpwLin_TransLM : public CNumerics {
 private:
 	double *Velocity_i;
 	double *Velocity_j;
-	bool implicit, rotating_frame, grid_movement, incompressible;
+	bool implicit, grid_movement, incompressible;
 	double Density_i, Density_j, q_ij, a0, a1;
 	unsigned short iDim;
 
@@ -2448,7 +2454,7 @@ public:
 class CUpwSca_TurbSA : public CNumerics {
 private:
 	double *Velocity_i, *Velocity_j;
-	bool implicit, rotating_frame, grid_movement, incompressible;
+	bool implicit, grid_movement, incompressible;
 	double Density_i, Density_j, q_ij, a0, a1;
 	unsigned short iDim;
 
@@ -2487,7 +2493,7 @@ public:
 class CUpwSca_TurbSST : public CNumerics {
 private:
 	double *Velocity_i, *Velocity_j;
-	bool implicit, rotating_frame, grid_movement, incompressible;
+	bool implicit, grid_movement, incompressible;
 	double Density_i, Density_j,
 	q_ij,
 	a0, a1;
@@ -2528,7 +2534,7 @@ public:
 class CUpwSca_TransLM : public CNumerics {
 private:
 	double *Velocity_i, *Velocity_j;
-	bool implicit, rotating_frame, grid_movement;
+	bool implicit, grid_movement;
 	double Density_i, Density_j,
 	q_ij,
 	a0, a1;
@@ -2623,8 +2629,7 @@ private:
     ProjGridVel_i, ProjGridVel_j, ProjGridVel;  /*!< \brief Projected grid velocity. */
 	bool implicit, /*!< \brief Implicit calculation. */
 	grid_movement, /*!< \brief Modification for grid movement. */
-	stretching, /*!< \brief Stretching factor. */
-	rotating_frame; /*!< \brief Rotational frame. */
+	stretching; /*!< \brief Stretching factor. */
 
 
 public:
@@ -2678,7 +2683,6 @@ private:
 	bool implicit, /*!< \brief Implicit calculation. */
 	grid_movement, /*!< \brief Modification for grid movement. */
 	stretching, /*!< \brief Stretching factor. */
-	rotating_frame, /*!< \brief Rotational frame. */
 	gravity; /*!< \brief computation with gravity force. */
 	double Froude; /*!< \brief Froude number. */
 
@@ -2725,7 +2729,7 @@ private:
 	double Residual, ProjVelocity_i, ProjVelocity_j, ProjPhi, ProjPhi_Vel, sq_vel, phis1, phis2;
 	double MeanPsiRho, MeanPsiE, Param_p, Param_Kappa_4, Param_Kappa_2, Local_Lambda_i, Local_Lambda_j, MeanLambda;
 	double Phi_i, Phi_j, sc4, StretchingFactor, Epsilon_4, Epsilon_2;
-	bool implicit, stretching, grid_movement, rotating_frame;
+	bool implicit, stretching, grid_movement;
 
 public:
 
@@ -2775,7 +2779,7 @@ private:
 	double Residual, ProjVelocity_i, ProjVelocity_j, ProjPhi, ProjPhi_Vel, sq_vel, phis1, phis2;
 	double MeanPsiRho, MeanPsiE, Param_p, Param_Kappa_4, Param_Kappa_2, Local_Lambda_i, Local_Lambda_j, MeanLambda;
 	double Phi_i, Phi_j, sc4, StretchingFactor, Epsilon_4, Epsilon_2;
-	bool implicit, stretching, grid_movement, rotating_frame;
+	bool implicit, stretching, grid_movement;
 
 public:
 
@@ -2881,8 +2885,7 @@ private:
 	Epsilon_0, cte; /*!< \brief Artificial dissipation values. */
 	bool implicit, /*!< \brief Implicit calculation. */
 	grid_movement, /*!< \brief Modification for grid movement. */
-	rotating_frame; /*!< \brief Rotational frame. */
-	bool stretching;
+	stretching;
 
 public:
 
@@ -2933,8 +2936,7 @@ private:
 	Epsilon_0, cte; /*!< \brief Artificial dissipation values. */
 	bool implicit, /*!< \brief Implicit calculation. */
 	grid_movement, /*!< \brief Modification for grid movement. */
-	gravity, /*!< \brief Modification for for gravity force. */
-	rotating_frame; /*!< \brief Rotational frame. */
+	gravity; /*!< \brief Modification for for gravity force. */
 	bool stretching;
 	double Froude;
 
@@ -2981,7 +2983,7 @@ private:
 	double Residual, ProjVelocity_i, ProjVelocity_j, ProjPhi, ProjPhi_Vel, sq_vel, phis1, phis2, 
 	MeanPsiRho, MeanPsiE, Param_p, Param_Kappa_0, Local_Lambda_i, Local_Lambda_j, MeanLambda, 
 	Phi_i, Phi_j, sc2, StretchingFactor, Epsilon_0, cte_0;
-	bool implicit, stretching, rotating_frame, grid_movement;
+	bool implicit, stretching, grid_movement;
 
 public:
 
@@ -3031,9 +3033,7 @@ private:
 	double Residual, ProjVelocity_i, ProjVelocity_j, ProjPhi, ProjPhi_Vel, sq_vel, phis1, phis2, 
 	MeanPsiRho, MeanPsiE, Param_p, Param_Kappa_0, Local_Lambda_i, Local_Lambda_j, MeanLambda, 
 	Phi_i, Phi_j, sc2, StretchingFactor, Epsilon_0, cte_0;
-	bool implicit;
-	bool stretching;
-	bool rotating_frame;
+	bool implicit, stretching;
 
 public:
 
@@ -3803,6 +3803,58 @@ public:
 	 */
 	void ComputeResidual(double *val_residual_i, double *val_residual_j, double **val_Jacobian_ii, double **val_Jacobian_ij, 
 			double **val_Jacobian_ji, double **val_Jacobian_jj, CConfig *config);
+};
+
+/*!
+ * \class CAvgGrad_AdjTurb
+ * \brief Class for adjoint turbulent using average of gradients with a correction.
+ * \ingroup ViscDiscr
+ * \author F. Palacios.
+ * \version 2.0.6
+ */
+class CAvgGrad_AdjTurb : public CNumerics {
+private:
+	double **Mean_GradTurbPsi;
+	double *Proj_Mean_GradTurbPsi_Kappa, *Proj_Mean_GradTurbPsi_Edge, *Proj_Mean_GradTurbPsi_Corrected;
+	double *Edge_Vector;
+  
+public:
+  
+	/*!
+	 * \brief Constructor of the class.
+	 * \param[in] val_nDim - Number of dimensions of the problem.
+	 * \param[in] val_nVar - Number of variables of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	CAvgGrad_AdjTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+  
+	/*!
+	 * \brief Destructor of the class.
+	 */
+	~CAvgGrad_AdjTurb(void);
+  
+	/*!
+	 * \brief Compute the adjoint turbulent residual using average of gradients and a derivative correction.
+	 * \param[out] val_residual - Pointer to the total residual.
+	 * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
+	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
+	 * \param[in] config - Definition of the particular problem.
+	 */
+  
+	void ComputeResidual(double *val_residual, double **val_Jacobian_i, double **val_Jacobian_j, CConfig *config);
+  
+	/*!
+	 * \overload
+	 * \param[out] val_residual_i - Pointer to the total residual at point i.
+	 * \param[out] val_residual_j - Pointer to the total viscosity residual at point j.
+	 * \param[out] val_Jacobian_ii - Jacobian of the numerical method at node i (implicit computation) from node i.
+	 * \param[out] val_Jacobian_ij - Jacobian of the numerical method at node i (implicit computation) from node j.
+	 * \param[out] val_Jacobian_ji - Jacobian of the numerical method at node j (implicit computation) from node i.
+	 * \param[out] val_Jacobian_jj - Jacobian of the numerical method at node j (implicit computation) from node j.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	void ComputeResidual(double *val_residual_i, double *val_residual_j, double **val_Jacobian_ii, double **val_Jacobian_ij,
+                       double **val_Jacobian_ji, double **val_Jacobian_jj, CConfig *config);
 };
 
 /*!
@@ -4702,15 +4754,15 @@ public:
 };
 
 /*!
- * \class CSourcePieceWise_Gravity
+ * \class CSourceGravity
  * \brief Class for the source term integration of the gravity force.
  * \ingroup SourceDiscr
  * \author F. Palacios
  * \version 2.0.6
  */
-class CSourcePieceWise_Gravity : public CNumerics {
+class CSourceGravity : public CNumerics {
 	double Froude;
-	bool incompressible;
+	bool compressible, incompressible, freesurface;
 
 public:
 
@@ -4719,12 +4771,12 @@ public:
 	 * \param[in] val_nVar - Number of variables of the problem.
 	 * \param[in] config - Definition of the particular problem.
 	 */
-	CSourcePieceWise_Gravity(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+	CSourceGravity(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
 
 	/*! 
 	 * \brief Destructor of the class. 
 	 */
-	~CSourcePieceWise_Gravity(void);
+	~CSourceGravity(void);
 
 	/*! 
 	 * \brief Source term integration for the electrical potential.
@@ -4784,8 +4836,6 @@ class CSourceViscous_AdjFlow : public CNumerics {
 private:
 	double *Velocity, *GradDensity, *GradInvDensity, *dPoDensity2, *alpha, *beta, *Sigma_5_vec;
 	double **GradVel_o_Rho, **sigma, **Sigma_phi, **Sigma_5_Tensor, **Sigma;
-	double kappapsi_Volume; /*!< \brief value of the mean flow Hybrid coupling term. */
-
 
 public:
 
@@ -4814,18 +4864,6 @@ public:
 	 * \param[in] val_phi - Value of the adjoint velocity.
 	 */
 	void SetPhi_Old(double *val_phi);
-
-	/*!
-	 * \brief Get the kappapsi_Volume value for Hybrid coupling.
-	 * \return kappapsi_Volume - value of mean flow coupling term
-	 */
-	double GetKappaPsiVolume();
-    
-    /*!
-	 * \brief Get the kappapsi_Volume value for Hybrid coupling.
-	 * \param[in] kappapsi_Volume - value of mean flow coupling term
-	 */
-	void SetKappaPsiVolume(double val_kappapsi_Volume);
 
 };
 
@@ -5376,6 +5414,9 @@ public:
  * \version 2.0.6
  */
 class CSourceAxisymmetric_Flow : public CNumerics {
+private:
+	bool compressible, incompressible, freesurface;
+  
 public:
 
 	/*! 
@@ -5398,9 +5439,6 @@ public:
 	 */
 	void ComputeResidual(double *val_residual, double **Jacobian_i, CConfig *config);
 
-
-private: 
-	bool incompressible;
 };
 
 /*!
@@ -5540,6 +5578,37 @@ public:
 	~CSource_JouleHeating(void);
 };
 
+/*!
+ * \class CSourceWindGust
+ * \brief Class for a source term due to a wind gust.
+ * \ingroup SourceDiscr
+ * \author S. Padrón
+ * \version 2.0.6
+ */
+class CSourceWindGust : public CNumerics {
+public:
+    
+	/*!
+	 * \brief Constructor of the class.
+	 * \param[in] val_nDim - Number of dimensions of the problem.
+	 * \param[in] val_nVar - Number of variables of the problem.
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	CSourceWindGust(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+    
+	/*!
+	 * \brief Destructor of the class.
+	 */
+	~CSourceWindGust(void);
+    
+	/*!
+	 * \brief Residual of the wind gust source term.
+	 * \param[out] val_residual - Pointer to the total residual.
+     * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
+	 * \param[in] config - Definition of the particular problem.
+	 */
+	void ComputeResidual(double *val_residual, double **val_Jacobian_i, CConfig *config);
+};
 
 /*!
  * \class CSource_Template

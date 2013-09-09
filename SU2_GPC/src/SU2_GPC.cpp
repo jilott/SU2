@@ -196,10 +196,8 @@ int main(int argc, char *argv[]) {
 		if (rank == MASTER_NODE)
 			cout << "Evaluate functional gradient using the continuous adjoint strategy." << endl;
 		
-    /*--- Load the delta change in the design variable (finite difference step). 
-     Note that this assumes DV_Value_New = finite_diff_step and DV_Value_Old = 0.0
-     in the config file. ---*/
-		delta_eps = config->GetDV_Value_New(iDV);
+    /*--- Load the delta change in the design variable (finite difference step). ---*/
+		delta_eps = config->GetDV_Value(iDV);
     my_Gradient = 0.0; Gradient = 0.0;
       
       /*--- Reset update points ---*/
@@ -207,7 +205,7 @@ int main(int argc, char *argv[]) {
         UpdatePoint[iPoint] = true;
       
       for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
-				if (config->GetMarker_All_Moving(iMarker) == YES) {
+				if (config->GetMarker_All_DV(iMarker) == YES) {
 					for (iVertex = 0; iVertex < boundary->nVertex[iMarker]; iVertex++) {
 						
 						iPoint = boundary->vertex[iMarker][iVertex]->GetNode();

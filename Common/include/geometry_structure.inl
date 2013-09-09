@@ -63,8 +63,6 @@ inline unsigned long CGeometry::GetnElemPyra(void) { return 0; }
 
 inline void CGeometry::Check_Orientation(CConfig *config) { }
 
-inline void CGeometry::Set3D_to_2D (CConfig *config, char mesh_vtk[200], char mesh_su2[200], unsigned short nslices) { }
-
 inline void CGeometry::SetColorGrid(CConfig *config) { }
 
 inline void CGeometry::DivideConnectivity(CConfig *config, unsigned short Elem_Type) { }
@@ -73,7 +71,9 @@ inline void CGeometry::SetRotationalVelocity(CConfig *config) { }
 
 inline void CGeometry::SetGridVelocity(CConfig *config, unsigned long iter) { }
 
-inline void CGeometry::SetRestricted_GridVelocity(CGeometry *fine_mesh, CConfig *config, unsigned long iter) { } 
+inline void CGeometry::SetRestricted_GridVelocity(CGeometry *fine_mesh, CConfig *config) { } 
+
+inline void CGeometry::Set_MPI_GridVel(CConfig *config) { } 
 
 inline void CGeometry::SetPeriodicBoundary(CConfig *config) { }
 
@@ -113,21 +113,13 @@ inline bool CGeometry::GetFinestMGLevel(void) { return FinestMGLevel; }
 
 inline string CGeometry::GetMarker_Tag(unsigned short val_marker) { return Tag_to_Marker[val_marker]; }
 
-inline void CGeometry::SetnElem_Storage(unsigned long val_nelem_storage) { nElem_Storage = val_nelem_storage; }
-
-inline unsigned long CGeometry::GetnElem_Storage(void) { return nElem_Storage; }
-
 inline unsigned long CGeometry::GetMax_GlobalPoint(void) { return Max_GlobalPoint; }
 
 inline void CGeometry::SetnMarker(unsigned short val_nmarker) { nMarker = val_nmarker; }
 
 inline void CGeometry::SetnElem_Bound(unsigned short val_marker, unsigned long val_nelem_bound) { nElem_Bound[val_marker]= val_nelem_bound; }
 
-inline void CGeometry::SetnElem_Bound_Storage(unsigned short val_marker, unsigned long val_nelem_bound) { nElem_Bound_Storage[val_marker]= val_nelem_bound; }
-
 inline unsigned long CGeometry::GetnElem_Bound(unsigned short val_marker) { return nElem_Bound[val_marker]; }
-
-inline unsigned long CGeometry::GetnElem_Bound_Storage(unsigned short val_marker) { return nElem_Bound_Storage[val_marker]; }
 
 inline void CGeometry::SetMarker_Tag(unsigned short val_marker, string val_index) { Tag_to_Marker[val_marker] = val_index; }
 
@@ -179,15 +171,22 @@ inline void CGeometry::SetMeshFile(CConfig *config, string val_mesh_out_filename
 
 inline void CGeometry::SetBoundTecPlot(CConfig *config, char mesh_filename[200]) { }
 
-inline void CGeometry::FindSharpEdges(CConfig *config) { }
+inline void CGeometry::ComputeSurf_Curvature(CConfig *config) { }
 
-inline double CGeometry::GetMaxThickness(CConfig *config, bool original_surface) { return 0; }
+inline void CGeometry::ComputeAirfoil_Section(double *Plane_P0, double *Plane_Normal, unsigned short iSection, CConfig *config,
+                                       vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, vector<unsigned long> &point1_Airfoil, vector<unsigned long> &point2_Airfoil, bool original_surface) { }
 
-inline double CGeometry::GetMinThickness(CConfig *config, bool original_surface) { return 0; }
+inline void CGeometry::ComputeAirfoil_Section(double *Plane_P0, double *Plane_Normal, unsigned short iSection, CConfig *config,
+                                       vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { }
+inline double CGeometry::Compute_MaxThickness(double *Plane_P0, double *Plane_Normal, unsigned short iSection, vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { return 0; }
 
-inline double CGeometry::GetTotalVolume(CConfig *config, bool original_surface) { return 0; }
+inline double CGeometry::Compute_AoA(double *Plane_P0, double *Plane_Normal, unsigned short iSection, vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { return 0; }
+  
+inline double CGeometry::Compute_Chord(double *Plane_P0, double *Plane_Normal, unsigned short iSection, vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { return 0; }
 
-inline double CGeometry::GetClearance(CConfig *config, bool original_surface) { return 0; }
+inline double CGeometry::Compute_Thickness(double *Plane_P0, double *Plane_Normal, unsigned short iSection, double Location, vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { return 0; }
+
+inline double CGeometry::Compute_Area(double *Plane_P0, double *Plane_Normal, unsigned short iSection, vector<double> &Xcoord_Airfoil, vector<double> &Ycoord_Airfoil, vector<double> &Zcoord_Airfoil, bool original_surface) { return 0; }
 
 inline void CGeometry::FindNormal_Neighbor(CConfig *config) { }
 
