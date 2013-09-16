@@ -24,6 +24,7 @@
 #include "../include/numerics_structure.hpp"
 #include <limits>
 
+#include "c_routines_d/pow_d.c"
 CUpwLin_TransLM::CUpwLin_TransLM(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) : CNumerics(val_nDim, val_nVar, config) {
   
 	implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
