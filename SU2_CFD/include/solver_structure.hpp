@@ -5,23 +5,23 @@
  *        <i>solution_direct.cpp</i>, <i>solution_adjoint.cpp</i>, and
  *        <i>solution_linearized.cpp</i> files.
  * \author Aerospace Design Laboratory (Stanford University) <http://su2.stanford.edu>.
- * \version 2.0.6
+ * \version 2.0.7
  *
- * Stanford University Unstructured (SU2) Code
- * Copyright (C) 2012 Aerospace Design Laboratory
+ * Stanford University Unstructured (SU2).
+ * Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * SU2 is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * SU2 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with SU2. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -51,7 +51,7 @@ using namespace std;
  * \brief Main class for defining the PDE solution, it requires
  * a child class for each particular solver (Euler, Navier-Stokes, Plasma, etc.)
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CSolver {
 protected:
@@ -1667,7 +1667,7 @@ public:
  * \class CBaselineSolver
  * \brief Main class for defining a baseline solution from a restart file (for output).
  * \author F. Palacios, T. Economon.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CBaselineSolver : public CSolver {
 public:
@@ -1711,7 +1711,7 @@ public:
  * \brief Main class for defining the Euler's flow solver.
  * \ingroup Euler_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CEulerSolver : public CSolver {
 protected:
@@ -2608,7 +2608,7 @@ public:
  * \brief Main class for defining the Navier-Stokes flow solver.
  * \ingroup Navier_Stokes_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CNSSolver : public CEulerSolver {
 private:
@@ -2805,7 +2805,7 @@ public:
  * \brief Main class for defining the turbulence model solver.
  * \ingroup Turbulence_Model
  * \author A. Bueno.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CTurbSolver : public CSolver {
 protected:
@@ -2923,7 +2923,7 @@ public:
  * \brief Main class for defining the turbulence model solver.
  * \ingroup Turbulence_Model
  * \author A. Bueno.
- * \version 2.0.6
+ * \version 2.0.7
  */
 
 class CTurbSASolver: public CTurbSolver {
@@ -3142,7 +3142,7 @@ public:
  * \brief Main class for defining the turbulence model solver.
  * \ingroup Turbulence_Model
  * \author A. Bueno.
- * \version 2.0.6
+ * \version 2.0.7
  */
 
 class CTransLMSolver: public CTurbSolver {
@@ -3308,7 +3308,7 @@ public:
  * \brief Main class for defining the turbulence model solver.
  * \ingroup Turbulence_Model
  * \author A. Campos, F. Palacios, T. Economon
- * \version 2.0.6
+ * \version 2.0.7
  */
 
 class CTurbSSTSolver: public CTurbSolver {
@@ -3481,7 +3481,7 @@ public:
  * \brief Main class for defining the Euler's adjoint flow solver.
  * \ingroup Euler_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CAdjEulerSolver : public CSolver {
 protected:
@@ -3925,7 +3925,7 @@ public:
  * \brief Main class for defining the Navier-Stokes' adjoint flow solver.
  * \ingroup Navier_Stokes_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CAdjNSSolver : public CAdjEulerSolver {
 public:
@@ -4018,7 +4018,7 @@ public:
  * \brief Main class for defining the adjoint turbulence model solver.
  * \ingroup Turbulence_Model
  * \author F. Palacios, A. Bueno.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CAdjTurbSolver : public CSolver {
 private:
@@ -4161,7 +4161,7 @@ public:
  * \brief Main class for defining the linearized Euler solver.
  * \ingroup Euler_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CLinEulerSolver : public CSolver {
 private:
@@ -4284,7 +4284,7 @@ public:
 /*! \class CElectricSolver
  *  \brief Main class for defining the electric potential solver.
  *  \author F. Palacios.
- *  \version 2.0.6
+ *  \version 2.0.7
  *  \date May 3, 2010.
  */
 class CElectricSolver : public CSolver {
@@ -4477,7 +4477,7 @@ public:
 /*! \class CWaveSolver
  *  \brief Main class for defining the wave solver.
  *  \author F. Palacios.
- *  \version 2.0.6
+ *  \version 2.0.7
  *  \date May 3, 2010.
  */
 class CWaveSolver : public CSolver {
@@ -4659,7 +4659,7 @@ public:
 /*! \class CHeatSolver
  *  \brief Main class for defining the heat solver.
  *  \author F. Palacios.
- *  \version 2.0.6
+ *  \version 2.0.7
  *  \date May 3, 2010.
  */
 class CHeatSolver : public CSolver {
@@ -4799,7 +4799,7 @@ public:
 /*! \class CFEASolver
  *  \brief Main class for defining the FEA solver.
  *  \author F. Palacios.
- *  \version 2.0.6
+ *  \version 2.0.7
  *  \date May 3, 2010.
  */
 class CFEASolver : public CSolver {
@@ -4972,7 +4972,7 @@ public:
  * \brief Main class for defining the level set solver.
  * \ingroup LevelSet_Model
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CLevelSetSolver : public CSolver {
 protected:
@@ -5179,7 +5179,7 @@ public:
  * \brief Main class for defining the level set solver.
  * \ingroup LevelSet_Model
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CAdjLevelSetSolver : public CSolver {
 protected:
@@ -5358,7 +5358,7 @@ public:
  * \brief Main class for defining the template model solver.
  * \ingroup Template_Flow_Equation
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CTemplateSolver : public CSolver {
 private:
@@ -5567,7 +5567,7 @@ public:
  * \class CPlasmaSolver
  * \brief Main class for defining the plasma solver.
  * \author ADL Stanford.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CPlasmaSolver : public CSolver {
 protected:
@@ -6307,7 +6307,7 @@ public:
  * \brief Main class for defining the Euler's adjoint flow solver.
  * \ingroup Euler_Equations
  * \author F. Palacios.
- * \version 2.0.6
+ * \version 2.0.7
  */
 class CAdjPlasmaSolver : public CSolver {
 protected:
