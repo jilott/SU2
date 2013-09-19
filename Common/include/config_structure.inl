@@ -127,7 +127,7 @@ inline int CConfig::GetCharge_Number(unsigned short val_Species) { return Charge
 
 inline double CConfig::GetSection_Limit(unsigned short val_var) { return Section_Limit[val_var]; }
 
-inline int ***CConfig::GetReaction_Map(void) { return Reactions; } 
+inline int ***CConfig::GetReaction_Map(void) { return Reactions; }
 
 inline double ***CConfig::GetCollisionIntegral00(void) { return Omega00; }
 
@@ -271,19 +271,19 @@ inline unsigned short CConfig::GetnRKStep(void) { return nRKStep; }
 
 inline double CConfig::Get_Alpha_RKStep(unsigned short val_step) { return RK_Alpha_Step[val_step]; }
 
-inline unsigned short CConfig::GetMG_PreSmooth(unsigned short val_mesh) {	
+inline unsigned short CConfig::GetMG_PreSmooth(unsigned short val_mesh) {
 	if (nMG_PreSmooth == 0) return 1;
-	else return MG_PreSmooth[val_mesh]; 
+	else return MG_PreSmooth[val_mesh];
 }
 
-inline unsigned short CConfig::GetMG_PostSmooth(unsigned short val_mesh) { 
+inline unsigned short CConfig::GetMG_PostSmooth(unsigned short val_mesh) {
 	if (nMG_PostSmooth == 0) return 0;
 	else return MG_PostSmooth[val_mesh];
 }
 
-inline unsigned short CConfig::GetMG_CorrecSmooth(unsigned short val_mesh) { 
+inline unsigned short CConfig::GetMG_CorrecSmooth(unsigned short val_mesh) {
 	if (nMG_CorrecSmooth == 0) return 0;
-	else return MG_CorrecSmooth[val_mesh]; 
+	else return MG_CorrecSmooth[val_mesh];
 }
 
 inline unsigned long CConfig::GetWrt_Sol_Freq(void) { return Wrt_Sol_Freq; }
@@ -401,23 +401,23 @@ inline double* CConfig::GetRotationModes() { return RotationModes; }
 
 inline double* CConfig::GetRefTemperature() { return Ref_Temperature; }
 
-inline double CConfig::GetParticle_Mass(unsigned short iSpecies) { return Particle_Mass[iSpecies]; } 
+inline double CConfig::GetParticle_Mass(unsigned short iSpecies) { return Particle_Mass[iSpecies]; }
 
 inline double CConfig::GetStagnation_B() { return Stagnation_B; }
 
-inline double CConfig::GetElec_Conductivity() { return Electric_Cond; } 
+inline double CConfig::GetElec_Conductivity() { return Electric_Cond; }
 
-inline double CConfig::GetDipoleDist() { return DipoleDist; } 
+inline double CConfig::GetDipoleDist() { return DipoleDist; }
 
-inline double* CConfig::GetMolar_Mass() { return Molar_Mass; } 
+inline double* CConfig::GetMolar_Mass() { return Molar_Mass; }
 
-inline double CConfig::GetMolar_Mass(unsigned short iSpecies) { return Molar_Mass[iSpecies]; } 
+inline double CConfig::GetMolar_Mass(unsigned short iSpecies) { return Molar_Mass[iSpecies]; }
 
 inline unsigned short CConfig::GetnMonatomics(void) { return nMonatomics; }
-	
-inline unsigned short CConfig::GetnDiatomics(void) { return nDiatomics; }	
 
-inline double CConfig::GetMolecular_Diameter(unsigned short iSpecies) { return Molecular_Diameter[iSpecies]; } 
+inline unsigned short CConfig::GetnDiatomics(void) { return nDiatomics; }
+
+inline double CConfig::GetMolecular_Diameter(unsigned short iSpecies) { return Molecular_Diameter[iSpecies]; }
 
 inline int CConfig::GetParticle_ChargeNumber(unsigned short iSpecies) { return Charge_Number[iSpecies]; }
 
@@ -427,9 +427,9 @@ inline double* CConfig::GetEnthalpy_Formation(void) { return Enthalpy_Formation;
 
 inline double CConfig::GetEnthalpy_Formation(unsigned short iSpecies) { return Enthalpy_Formation[iSpecies]; }
 
-inline double CConfig::GetTemperature_Ref(unsigned short iSpecies) { return Species_Ref_Temperature[iSpecies]; } 
+inline double CConfig::GetTemperature_Ref(unsigned short iSpecies) { return Species_Ref_Temperature[iSpecies]; }
 
-inline double CConfig::GetViscosity_Ref(unsigned short iSpecies) { return Species_Ref_Viscosity[iSpecies]; } 
+inline double CConfig::GetViscosity_Ref(unsigned short iSpecies) { return Species_Ref_Viscosity[iSpecies]; }
 
 inline unsigned short CConfig::GetKind_Gradient_Method(void) { return Kind_Gradient_Method; }
 
@@ -724,7 +724,7 @@ inline string CConfig::GetMarker_NacelleExhaust(unsigned short val_marker) { ret
 inline unsigned short CConfig::GetTag_Marker_All(string val_tag) {
 	for (unsigned short iMarker = 0; iMarker < nMarker_All; iMarker++) {
 		if (val_tag == Marker_All_Tag[iMarker])
-		return iMarker; 
+		return iMarker;
 	}
 	cout <<"Ups, I don't find the boundary: "<< val_tag << endl; return 0;
 }
@@ -885,6 +885,8 @@ inline bool CConfig::GetRotating_Frame(void) { return Rotating_Frame; }
 
 inline bool CConfig::GetAxisymmetric(void) { return Axisymmetric; }
 
+inline bool CConfig::GetDES(void) { return DES; }
+
 inline bool CConfig::GetAdaptBoundary(void) { return AdaptBoundary; }
 
 inline bool CConfig::GetAdiabaticWall(void) { return AdiabaticWall; }
@@ -980,7 +982,7 @@ inline bool CConfig::GetRelative_Motion(void) { return Relative_Motion; }
 inline double* CConfig::GetAeroelastic_np1(void) {return Aeroelastic_np1; }
 
 inline double* CConfig::GetAeroelastic_n(void) {return Aeroelastic_n; }
-    
+
 inline double* CConfig::GetAeroelastic_n1(void) {return Aeroelastic_n1; }
 
 inline void CConfig::SetAeroelastic_np1(unsigned short val_index, double val) {Aeroelastic_np1[val_index] = val;}
@@ -1002,7 +1004,7 @@ inline void CConfig::SetAeroelastic_n(void) {
     for (unsigned short i=0; i<4; i++)
         Aeroelastic_n[i] = Aeroelastic_np1[i];
 }
-    
+
 inline double CConfig::GetAeroelastic_Frequency_Plunge(void) {return FreqPlungeAeroelastic;}
 
 inline double CConfig::GetAeroelastic_Frequency_Pitch(void) {return FreqPitchAeroelastic;}
