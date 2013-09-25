@@ -467,7 +467,7 @@ CSourcePieceWise_TransLM::CSourcePieceWise_TransLM(unsigned short val_nDim, unsi
 
 CSourcePieceWise_TransLM::~CSourcePieceWise_TransLM(void) { }
 
-void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary) {
+void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug) {
 
 	//************************************************//
 	// Please do not delete //SU2_CPP2C comment lines //
@@ -494,7 +494,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	double f_lambda, re_theta, rey, re_theta_lim, r_t, mach;
 	double Velocity_Mag = 0.0, du_ds, delta, theta, lambda, time_scale, var1, f_theta;
 	double theta_bl, f_reattach;
-  double delta_bl, f_wake;
+	double delta_bl, f_wake;
 	double dU_dx, dU_dy, dU_dz;
 
 	//SU2_CPP2C COMMENT START
@@ -595,13 +595,14 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 		/*-- Fixed-point iterations to solve REth correlation --*/
 		f_lambda = 1.;
+		double tu2 = tu*100.;
 
 		for (int iter=0; iter<10; iter++) {
 
-			if (tu <= 1.3) {
-				re_theta = f_lambda * (1173.51-589.428*tu+0.2196/(tu*tu));
+			if (tu2 <= 1.3) {
+				re_theta = f_lambda * (1173.51-589.428*tu2+0.2196/(tu2*tu2));
 			} else {
-				re_theta = 331.5 * f_lambda*pow(tu-0.5658,-0.671);
+				re_theta = 331.5 * f_lambda*pow(tu2-0.5658,-0.671);
 			}
 			re_theta = max(re_theta, re_theta_lim);
 
@@ -617,9 +618,9 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 			if (lambda<=0.0) {
 				f_lambda = 1. - (-12.986*lambda - 123.66*lambda*lambda -
-						405.689*lambda*lambda*lambda)*exp(-pow(2./3*tu,1.5));
+						405.689*lambda*lambda*lambda)*exp(-pow(2./3*tu2,1.5));
 			} else {
-				f_lambda = 1. + 0.275*(1.-exp(-35.*lambda))*exp(-2.*tu);
+				f_lambda = 1. + 0.275*(1.-exp(-35.*lambda))*exp(-2.*tu2);
 			}
 		}
 
@@ -643,6 +644,9 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 		val_residual[1] *= Volume;
 
 		//SU2_CPP2C COMMENT START
+//		sagt_debug << TransVar_i[0]/U_i[0] << " " << TransVar_i[1]/U_i[0] << " "
+//				   << re_theta << " " << flen << " " << rey_tc << endl;
+
 		//cout << "val_res0: "  << val_residual[0]      << endl;
 		//cout << "val_res1: "  << val_residual[1]      << endl;
 		//cout << "dist_i: "    << dist_i               << endl;

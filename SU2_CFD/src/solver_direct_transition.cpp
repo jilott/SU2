@@ -159,6 +159,8 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
 		restart_file.close();
 	}
 
+
+
 }
 
 CTransLMSolver::~CTransLMSolver(void){
@@ -379,6 +381,13 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 
     //cout << "Setting Trans residual -AA " << endl;
     //cout << "\nBeginAA" << endl;
+
+  // DEBUG
+//  sagt_debug.open("sagt_debug.plt");
+//  sagt_debug << "TITLE = \"SAGT (Langtry+Menter) Transition model debug file \" " << endl;
+//  sagt_debug << "VARIABLES = \"itmc\" \"Re_th_bar\" \"Re_th\" \"flen\" \"Re_thc\"" << endl;
+//  sagt_debug << "ZONE DATAPACKING=POINT" << endl;
+
   for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++) {
 	  //   cout << "\niPoint: " << iPoint << endl;
 
@@ -405,7 +414,7 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 	  boundary = geometry->node[iPoint]->GetBoundary();
 
 	  /*--- Compute the source term ---*/
-	  numerics->ComputeResidual_TransLM(Residual, Jacobian_i, gamma_sep, config, boundary);
+	  numerics->ComputeResidual_TransLM(Residual, Jacobian_i, gamma_sep, config, boundary, sagt_debug);
 
 	  /*-- Store gamma_sep in variable class --*/
 	  node[iPoint]->SetGammaSep(gamma_sep);
@@ -416,6 +425,7 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 	  Jacobian.SubtractBlock(iPoint, iPoint, Jacobian_i);
 
   }
+//  sagt_debug.close();
   
 }
 

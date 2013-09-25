@@ -3141,7 +3141,7 @@ public:
  * \class CTransLMSolver
  * \brief Main class for defining the turbulence model solver.
  * \ingroup Turbulence_Model
- * \author A. Bueno.
+ * \author A. Aranake.
  * \version 2.0.7
  */
 
@@ -3301,6 +3301,8 @@ public:
 	 * \param[in] config - Definition of the particular problem.
 	 */
 	void ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config);
+
+	ofstream sagt_debug;
 };
 
 /*!

@@ -1206,7 +1206,7 @@ public:
 	 */
 	virtual void ComputeResidual(double *val_residual_i, double *val_residual_j);
 
-    virtual void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary) ;
+    virtual void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug) ;
 
 	/*!
 	 * \overload
@@ -4677,19 +4677,19 @@ private:
 	double sigma;
 	double cb2;
 	double cw1;
-  /*-- gamma-theta model constants --*/
-  double c_e1;
-  double c_a1;
-  double c_e2;
-  double c_a2;
-  double sigmaf;
-  double s1;
-  double c_theta;
-  double sigmat;
-  double REth_Inf;
-  /*-- Correlation constants --*/
-  double flen_global;
-  double alpha_global;
+	/*-- gamma-theta model constants --*/
+	double c_e1;
+	double c_a1;
+	double c_e2;
+	double c_a2;
+	double sigmaf;
+	double s1;
+	double c_theta;
+	double sigmat;
+	double REth_Inf;
+	/*-- Correlation constants --*/
+	double flen_global;
+	double alpha_global;
 
 	double DivVelocity, Vorticity;
 	unsigned short iDim;
@@ -4725,7 +4725,7 @@ public:
 	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
 	 * \param[in] config - Definition of the particular problem.
 	 */
-  void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary);
+  void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug);
   
   void CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(double *TransVar_i, double *TransVar_id, double *val_residual, double *val_residuald, CConfig *config, bool boundary);
 };
