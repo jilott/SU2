@@ -385,7 +385,7 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
   // DEBUG
 //  sagt_debug.open("sagt_debug.plt");
 //  sagt_debug << "TITLE = \"SAGT (Langtry+Menter) Transition model debug file \" " << endl;
-//  sagt_debug << "VARIABLES = \"itmc\" \"Re_th_bar\" \"Re_th\" \"flen\" \"Re_thc\"" << endl;
+//  sagt_debug << "VARIABLES = \"itmc\" \"Re_th_bar\" \"re_theta_t\" \"flen\" \"re_theta_c\"" << endl;
 //  sagt_debug << "ZONE DATAPACKING=POINT" << endl;
 
   for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++) {

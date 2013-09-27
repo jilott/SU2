@@ -4693,7 +4693,9 @@ private:
 
 	/*-- Intermediate values computed in translm_helper() --*/
 	double rey, mach, tu;
-	double strain;
+	double strain, time_scale;
+	double Velocity_Mag, du_ds;
+	double re_theta_t, f_lambda;
 
 	double DivVelocity, Vorticity;
 	unsigned short iDim;
@@ -4732,7 +4734,7 @@ public:
   void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug);
   
   void translm_helper(CConfig *config);
-  void corr_func(double lambda);
+  double corr_func(double lambda);
 
   void CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(double *TransVar_i, double *TransVar_id, double *val_residual, double *val_residuald, CConfig *config, bool boundary);
 };

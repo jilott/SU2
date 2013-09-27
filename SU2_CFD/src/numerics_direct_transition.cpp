@@ -467,7 +467,45 @@ CSourcePieceWise_TransLM::CSourcePieceWise_TransLM(unsigned short val_nDim, unsi
 
 CSourcePieceWise_TransLM::~CSourcePieceWise_TransLM(void) { }
 
+double CSourcePieceWise_TransLM::corr_func(double lambda_in) {
+
+	double re_thetaRHS, re_thetaLHS;
+	double f;
+
+	/*-- compute f --*/
+	re_thetaLHS = sqrt(U_i[0]*pow(Velocity_Mag,2)/(Laminar_Viscosity_i*du_ds)*lambda_in);
+
+	if (lambda_in <= 0.0)
+		f_lambda = 1 - (-12.986*lambda_in - 123.66*pow(lambda_in,2) - 405.689*pow(lambda_in,3))*exp(-pow(tu/1.5,1.5));
+	else
+		f_lambda = 1 + 0.275*(1-exp(-35.0*lambda_in))*exp(-tu/0.5);
+
+	if (tu <= 1.3)
+		re_thetaRHS = (1173.51 - 589.428*tu + 0.2196/pow(tu,2))*f_lambda;
+	else
+		re_thetaRHS = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
+
+	// cout << "U_i[0]=" << U_i[0] << ", Velocity_Mag = " << Velocity_Mag << ", Laminar_Viscosity_i = " << Laminar_Viscosity_i << ", du_ds = " << du_ds << endl;
+	// cout << "LHS, RHS: " << re_thetaLHS << ", " << re_thetaRHS << endl;
+	f = re_thetaLHS-re_thetaRHS;
+
+	return f;
+
+}
+
+
 void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
+
+	double re_theta_lim, dU_dx, dU_dy, dU_dz;
+
+	double lambda_a, lambda_b, lambda_c, lambda;
+
+	double f_a, f_b, f_c;
+	double bracket_tol = 1e-10;
+	double lambda_check;
+
+	bool debug=false;
+
 
 	rey  = config->GetReynolds();
 	mach = config->GetMach_FreeStreamND();
@@ -478,10 +516,120 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 
 	/*-- Strain = sqrt(2*Sij*Sij) --*/
 	strain = sqrt(2.*(    PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]
-	           +  0.5*pow(PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0],2)
-                       +  PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
+	                                                             +  0.5*pow(PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0],2)
+	+  PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
+
+	if (nDim==2) {
+		Velocity_Mag = sqrt(U_i[1]*U_i[1]+U_i[2]*U_i[2])/U_i[0];
+	} else if (nDim==3) {
+		Velocity_Mag = sqrt(U_i[1]*U_i[1]+U_i[2]*U_i[2]+U_i[3]*U_i[3])/U_i[0];
+	}
+
+	/*-- Gradient of velocity magnitude ---*/
+	dU_dx = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][0]
+	                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][0]);
+	if (nDim==3)
+		dU_dx += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][0]);
+
+	dU_dy = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][1]
+	                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][1]);
+	if (nDim==3)
+		dU_dy += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][1]);
+
+	if (nDim==3)
+		dU_dz = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][2]
+		                          +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][2]
+		                          +2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][2]);
+
+	du_ds = U_i[1]/(U_i[0]*Velocity_Mag) * dU_dx +  // Streamwise velocity derivative
+			U_i[2]/(U_i[0]*Velocity_Mag) * dU_dy;
+	if (nDim==3)
+		du_ds += U_i[3]/(U_i[0]*Velocity_Mag) * dU_dz;
+
+	re_theta_lim = 20.;
+
+	/*-- Fixed-point iterations to solve REth correlation --*/
+	f_lambda = 1.;
+	tu = tu*100.;
+
+	/*-- Initial bracket for lambda --*/
+	if (du_ds>=0) {
+		lambda_a = 0.0;
+		lambda_b = 0.1;
+	} else {
+		lambda_a = -0.1;
+		lambda_b =  0.0;
+	}
+
+	if (abs(du_ds)<1e-11) {
+		lambda = 0.0;
+	} else {
+		f_a = corr_func(lambda_a);
+		f_b = corr_func(lambda_b);
+		if (f_a*f_b > 0) {
+			// cout << "ERROR: f_a and f_b have same sign!" << endl;
+			lambda = 0.1*copysign(1.0,du_ds);
+		} else {
+
+			/*-- Begin method of false position to solve for lambda --*/
+			while(1) {
+
+				/*-- Mathews and Fink, p.57 eq. 22 --*/
+				lambda_c = lambda_b - (f_b*(lambda_b-lambda_a))/(f_b-f_a);
+				f_c = corr_func(lambda_c);
+
+				/*-- Monitor convergence --*/
+				// cout << lambda_a << " " << lambda_c << " " << lambda_b << "\t" << f_a << " " << f_c << " " << f_b << endl;
+
+				if (f_c==0.0) {
+					lambda = lambda_c;
+					// cout << "Exact solution found: lambda=" << lambda << endl;
+					break;
+				}
+				if (lambda_c-lambda_a <= bracket_tol) {
+					lambda = 0.5*(lambda_a+lambda_c);
+					// cout << "Bracket tolerance reached. lambda = " << lambda << endl;
+					break;
+				} else if (lambda_b-lambda_c <= bracket_tol) {
+					lambda = 0.5*(lambda_b+lambda_c);
+					// cout << "Bracket tolerance reached. lambda = " << lambda << endl;
+					break;
+				}
+
+				/*-- Modify bracket for next iteration --*/
+				if (f_a*f_c <=0) {
+					lambda_b = lambda_c;
+					f_b      = f_c;
+				} else {
+					lambda_a = lambda_c;
+					f_a      = lambda_a;
+				}
+			}
+		}
+	}
+
+	/*-- Restore tu to its regular value --*/
+	tu /= 100;
+
+	if (lambda <= 0.0)
+		f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5));
+	else
+		f_lambda = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
+
+	if (tu <= 1.3)
+		re_theta_t = (1173.51 - 589.428*tu + 0.2196/pow(tu,2))*f_lambda;
+	else
+		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
+
+	lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
+
+
+	/*-- Calculate blending function f_theta --*/
+	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
 
 }
+
+
 void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug) {
 
 	//************************************************//
@@ -493,7 +641,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	//SU2_CPP2C INVARS *TransVar_i
 	//SU2_CPP2C OUTVARS *val_residual
 	//SU2_CPP2C VARS DOUBLE *U_i **PrimVar_Grad_i Laminar_Viscosity_i Eddy_Viscosity_i dist_i
-	//SU2_CPP2C VARS DOUBLE SCALAR c_a1 c_e1 c_a2 c_e2 c_theta alpha_global flen_global Volume
+	//SU2_CPP2C VARS DOUBLE SCALAR c_a1 c_e1 c_a2 c_e2 c_theta alpha_global flen_global Volume tu strain Velocity_Mag time_scale Vorticity re_theta_t
 	//SU2_CPP2C CALL_LIST END
 
 	//SU2_CPP2C DEFINE nDim
@@ -506,8 +654,8 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	double re_theta_c, flen, re_v, f_onset1, f_onset2, f_onset3, f_onset, f_turb;
 
 	double prod, des;
-	double f_lambda, re_theta, re_theta_lim, r_t;
-	double Velocity_Mag = 0.0, du_ds, delta, theta, lambda, time_scale, var1, f_theta;
+	double r_t;
+	double delta, theta, lambda, var1, f_theta;
 	double theta_bl, f_reattach;
 	double delta_bl, f_wake;
 	double dU_dx, dU_dy, dU_dz;
@@ -537,7 +685,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	/*-- Quit now if we're at the wall  --*/
 	if (dist_i<1e-12) return;
 
-	/* -- Compute intermediate correlations/expressions. These quantities which do not depend on TransVar explicitly are isolated to simplify the differentiated version of this routine.--*/
+	/* -- Compute intermediate correlations/expressions. These quantities which do not depend on TransVar are isolated to simplify the differentiated version of this routine.--*/
 	translm_helper(config);
 	//SU2_CPP2C COMMENT END
 
@@ -567,114 +715,6 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	val_residual[0] *= Volume;
 
 	/*-- REtheta eq: --*/
-	if (nDim==2) {
-		Velocity_Mag = sqrt(U_i[1]*U_i[1]+U_i[2]*U_i[2])/U_i[0];
-	} else if (nDim==3) {
-		Velocity_Mag = sqrt(U_i[1]*U_i[1]+U_i[2]*U_i[2]+U_i[3]*U_i[3])/U_i[0];
-	}
-
-	/*-- Gradient of velocity magnitude ---*/
-	dU_dx = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][0]
-	                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][0]);
-	if (nDim==3)
-		dU_dx += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][0]);
-
-	dU_dy = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][1]
-	                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][1]);
-	if (nDim==3)
-		dU_dy += 0.5*Velocity_Mag*( 2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][1]);
-
-	if (nDim==3)
-		dU_dz = 0.5*Velocity_Mag*( 2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][2]
-		                                                             +2*U_i[2]/U_i[0]*PrimVar_Grad_i[2][2]
-		                                                                                                +2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][2]);
-
-	du_ds = U_i[1]/(U_i[0]*Velocity_Mag) * dU_dx +  // Streamwise velocity derivative
-			U_i[2]/(U_i[0]*Velocity_Mag) * dU_dy;
-	if (nDim==3)
-		du_ds += U_i[3]/(U_i[0]*Velocity_Mag) * dU_dz;
-
-	re_theta_lim = 20.;
-
-	/*-- Fixed-point iterations to solve REth correlation --*/
-	f_lambda = 1.;
-	tu = tu*100.;
-
-	for (iter=0; iter<100; iter++) {
-
-		/*-- Evaluate residual for present guess --*/
-		if (tu <= 1.3)
-			re_theta0 = (1173.51 - 589.428*tu + 0.2196/pow(tu,2))*f_lambda;
-		else
-			re_theta0 = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
-
-		lambda = pow(re_theta0,2) * Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-		lambda = min(max(lambda,-0.1),0.1);
-
-		if (lambda <= 0.0)
-			f_lambda0 = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5));
-		else
-			f_lambda0 = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
-
-		fk[0] = re_theta - re_theta0;
-		fk[1] = f_lambda - f_lambda0;
-
-		/*-- Flip sign of fk for RHS of Newton's method --*/
-		fk[0] *= -1.; fk[1] *= -1.;
-
-		/*-- Check for convergence --*/
-		normres = sqrt(fk[0]*fk[0] + fk[1]*fk[1]);
-		// cout << normres << " " << re_theta << " " << f_lambda << " " << lambda << endl;
-		if (normres < newton_tol) {
-			// cout << "Solution converged." << endl;
-			// cout << "x: {" << re_theta << " " << f_lambda <<  "}" << endl;
-			break;
-		}
-
-		/*-- Evaluate the Jacobian of the nonlinear correlation system d(fk)/dx --*/
-		J[0][0] = 1.;
-		if (tu <= 1.3)
-			J[0][1] = (1173.51 - 589.428*tu + 0.2196/pow(tu,2));
-		else
-			J[0][1] = (331.5*pow(tu-0.5658,-0.671));
-		J[0][1] *= -1;
-
-		dre_dlamb = 2*re_theta * Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-		if (lambda <= 0)
-			J[1][0] = 0. - (-12.986 - 2*123.66*lambda - 3*405.689*pow(lambda,2))*dre_dlamb*exp(-pow(tu/1.5,1.5));
-		else
-			J[1][0] = 0. + 0.275*(0.0+35.0*exp(-35.0*lambda))*dre_dlamb*exp(-tu/0.5);
-		J[1][0] *= -1;
-		J[1][1] = 1.;
-
-		/*-- Forward solve --*/
-		factor = J[1][0]/J[0][0];
-		J[1][0] = 0.0;
-		J[1][1] -= J[0][1]*factor;
-		fk[1]   -= fk[0]*factor;
-
-		/*-- Back substitution --*/
-		dx[1] = fk[1]/J[1][1];
-		dx[0] = (fk[0]-J[0][1]*dx[1])/J[0][0];
-
-		re_theta += dx[0];
-		f_lambda += dx[1];
-
-	}
-
-	//SU2_CPP2C COMMENT START
-	if (iter==100) {
-		cout << "WARNING: Max iters reached! fk = {" << fk[0] << ", " << fk[1] << "}" << endl;
-		cout << "tu = " << tu << ", rho = " << U_i[0] << ", mu = " << Laminar_Viscosity_i << ", U = " << Velocity_Mag << ", du_ds = " << du_ds << endl;
-	}
-	//SU2_CPP2C COMMENT END
-
-	/*-- Restore tu to its regular value --*/
-	tu /= 100;
-
-	/*-- Calculate blending function f_theta --*/
-	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
-
 	// Deactivated the f_wake parameter...
 	theta_bl   = TransVar_i[1]/U_i[0]*Laminar_Viscosity_i / (U_i[0]*Velocity_Mag);
 	delta_bl   = 7.5*theta_bl;
@@ -688,16 +728,16 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	f_theta = min(max(f_wake*exp(-pow(dist_i/delta,4)), var1),1.0);
 	//f_theta = min(var1,1.0);
 
-	val_residual[1] = c_theta*U_i[0]/time_scale *  (1.-f_theta) * (re_theta-TransVar_i[1]/U_i[0]);
+	val_residual[1] = c_theta*U_i[0]/time_scale *  (1.-f_theta) * (re_theta_t-TransVar_i[1]/U_i[0]);
 	val_residual[1] *= Volume;
 
 	//SU2_CPP2C COMMENT START
-	//		sagt_debug << TransVar_i[0]/U_i[0] << " " << TransVar_i[1]/U_i[0] << " "
-	//				   << re_theta << " " << flen << " " << rey_tc << endl;
+	//sagt_debug << TransVar_i[0]/U_i[0] << " " << TransVar_i[1]/U_i[0] << " "
+	//		<< re_theta_t << " " << flen << " " << re_theta_c << endl;
 
 	/*-- Calculate term for separation correction --*/
 	f_reattach = exp(-pow(0.05*r_t,4));
-	gamma_sep = s1*max(0.,re_v/(3.235*rey_tc)-1.)*f_reattach;
+	gamma_sep = s1*max(0.,re_v/(3.235*re_theta_c)-1.)*f_reattach;
 	gamma_sep = min(gamma_sep,2.0)*f_theta;
 
 	/*--- Implicit part ---*/
@@ -719,299 +759,149 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 
 void CSourcePieceWise_TransLM::CSourcePieceWise_TransLM__ComputeResidual_TransLM_d(double *TransVar_i, double *TransVar_id, double *val_residual, double *val_residuald, CConfig *config, bool boundary)
 {
-    double rey_tc, flen, re_v, strain, f_onset1, f_onset2, f_onset3, f_onset, 
-    f_turb, tu;
-    double rey_tcd, f_onset1d, f_onset2d, f_onsetd;
-    double prod, des;
-    double prodd, desd;
-    double f_lambda, re_theta, rey, re_theta_lim, r_t, mach;
-    double Velocity_Mag = 0.0, du_ds, delta, theta, lambda, time_scale, var1, 
-    f_theta;
-    double deltad, var1d, f_thetad;
-    double theta_bl, f_reattach;
-    double theta_bld;
-    double delta_bl, f_wake;
-    double delta_bld;
-    double dU_dx, dU_dy, dU_dz;
-    double fk[2], dx[2], J[2][2];
-    double fkd[2], dxd[2], Jd[2][2];
-    double re_theta0, f_lambda0, dre_dlamb, normres, factor;
-    double newton_tol = 1e-10;
-    int iter;
-    double result1;
-    double result1d;
-    double arg1;
-    double arg1d;
-    double result2;
-    double result3;
-    double x5;
-    double x4;
-    double x3;
-    double x2;
-    double x1;
-    double x5d;
-    double x1d;
-    double x4d;
-    double y1;
-    double y1d;
-    val_residuald[0] = 0.0;
-    val_residual[0] = 0.0;
-    val_residuald[1] = 0.0;
-    val_residual[1] = 0.0;
-    /* -- These lines included just so Tapenade doesn't complain --*/
-    rey  = config->GetReynolds();
-    mach = config->GetMach_FreeStreamND();
-    tu   = config->GetTurbulenceIntensity_FreeStream();
-    /*--- Compute vorticity and strain (TODO: Update for 3D) ---*/
-    Vorticity = fabs(PrimVar_Grad_i[1][1] - PrimVar_Grad_i[2][0]);
-    /*-- Strain = sqrt(2*Sij*Sij) --*/
-    result1 = pow(PrimVar_Grad_i[1][1] + PrimVar_Grad_i[2][0], 2);
-    arg1 = 2.*(PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]+0.5*result1+
-        PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]);
-    strain = sqrt(arg1);
-    /*-- Note: no incompressible for now! --*/
-    if (dist_i > 0.0) {
-        /*-- Intermittency eq.: --*/
-        // Only operate away from wall
-        result1 = pow(tu, 3);
-        result2 = pow(tu, 2);
-        rey_tcd = (4.45*result1-5.7*result2+1.37*tu+0.585)*TransVar_id[1]/U_i[
-            0];
-        rey_tc = (4.45*result1-5.7*result2+1.37*tu+0.585)*TransVar_i[1]/U_i[0]
-        ;
-        result1 = pow(tu, 2);
-        flen = 0.171*result1 - 0.0083*tu + 0.0306;
-        result1 = pow(dist_i, 2.);
-        re_v = U_i[0]*result1/Laminar_Viscosity_i*strain;
-        /*-- f_onset controls transition onset location --*/
-        // Vorticity Reynolds number
-        r_t = Eddy_Viscosity_i/Laminar_Viscosity_i;
-        f_onset1d = -(re_v*2.193*rey_tcd/(2.193*rey_tc*(2.193*rey_tc)));
-        f_onset1 = re_v/(2.193*rey_tc);
-        y1d = pow_d(f_onset1, f_onset1d, 4., &y1);
-        if (f_onset1 < y1) {
-            x1d = y1d;
-            x1 = y1;
-        } else {
-            x1d = f_onset1d;
-            x1 = f_onset1;
-        }
-        if (x1 > 2.) {
-            f_onset2 = 2.;
-            f_onset2d = 0.0;
-        } else {
-            f_onset2d = x1d;
-            f_onset2 = x1;
-        }
-        result1 = pow(0.4*r_t, 3);
-        x2 = 1. - result1;
-        if (x2 < 0.)
-            f_onset3 = 0.;
-        else
-            f_onset3 = x2;
-        if (f_onset2 - f_onset3 < 0.) {
-            f_onset = 0.;
-            f_onsetd = 0.0;
-        } else {
-            f_onsetd = f_onset2d;
-            f_onset = f_onset2 - f_onset3;
-        }
-        result1 = pow(0.25*r_t, 4);
-        f_turb = exp(-result1);
-        // Medida eq. 10
-        arg1d = (f_onsetd*TransVar_i[0]+f_onset*TransVar_id[0])/U_i[0];
-        arg1 = f_onset*TransVar_i[0]/U_i[0];
-        result1d = (arg1 == 0.0 ? 0.0 : arg1d/(2.0*sqrt(arg1)));
-        result1 = sqrt(arg1);
-        prodd = flen*c_a1*U_i[0]*strain*result1d;
-        prod = flen*c_a1*U_i[0]*strain*result1;
-        prodd = prodd*(1.-c_e1*TransVar_i[0]/U_i[0]) - prod*c_e1*TransVar_id[0
-            ]/U_i[0];
-        prod = prod*(1.-c_e1*TransVar_i[0]/U_i[0]);
-        desd = f_turb*c_a2*Vorticity*TransVar_id[0];
-        des = c_a2*U_i[0]*Vorticity*TransVar_i[0]/U_i[0]*f_turb;
-        desd = desd*(c_e2*TransVar_i[0]/U_i[0]-1.) + des*c_e2*TransVar_id[0]/
-            U_i[0];
-        des = des*(c_e2*TransVar_i[0]/U_i[0]-1.);
-        val_residuald[0] = prodd - desd;
-        val_residual[0] = prod - des;
-        val_residuald[0] = Volume*val_residuald[0];
-        val_residual[0] *= Volume;
-        /*-- REtheta eq: --*/
-        if (nDim == 2) {
-            arg1 = U_i[1]*U_i[1] + U_i[2]*U_i[2];
-            result1 = sqrt(arg1);
-            Velocity_Mag = result1/U_i[0];
-        } else
-            if (nDim == 3) {
-                arg1 = U_i[1]*U_i[1] + U_i[2]*U_i[2] + U_i[3]*U_i[3];
-                result1 = sqrt(arg1);
-                Velocity_Mag = result1/U_i[0];
-            }
-        /*-- Gradient of velocity magnitude ---*/
-        dU_dx = 0.5*Velocity_Mag*(2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][0]+2*U_i[2
-            ]/U_i[0]*PrimVar_Grad_i[2][0]);
-        if (nDim == 3)
-            dU_dx += 0.5*Velocity_Mag*(2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][0]);
-        dU_dy = 0.5*Velocity_Mag*(2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][1]+2*U_i[2
-            ]/U_i[0]*PrimVar_Grad_i[2][1]);
-        if (nDim == 3)
-            dU_dy += 0.5*Velocity_Mag*(2*U_i[3]/U_i[0]*PrimVar_Grad_i[3][1]);
-        if (nDim == 3)
-            dU_dz = 0.5*Velocity_Mag*(2*U_i[1]/U_i[0]*PrimVar_Grad_i[1][2]+2*
-                U_i[2]/U_i[0]*PrimVar_Grad_i[2][2]+2*U_i[3]/U_i[0]*
-                PrimVar_Grad_i[3][2]);
-        du_ds = U_i[1]/(U_i[0]*Velocity_Mag)*dU_dx + U_i[2]/(U_i[0]*
-            Velocity_Mag)*dU_dy;
-        // Streamwise velocity derivative
-        if (nDim == 3)
-            du_ds += U_i[3]/(U_i[0]*Velocity_Mag)*dU_dz;
-        re_theta_lim = 20.;
-        /*-- Fixed-point iterations to solve REth correlation --*/
-        f_lambda = 1.;
-        tu = tu*100.;
-        for (iter = 0; iter < 100; ++iter) {
-            /*-- Evaluate residual for present guess --*/
-            if (tu <= 1.3) {
-                result1 = pow(tu, 2);
-                re_theta0 = (1173.51-589.428*tu+0.2196/result1)*f_lambda;
-            } else {
-                result1 = pow(tu - 0.5658, -0.671);
-                re_theta0 = 331.5*result1*f_lambda;
-            }
-            result1 = pow(re_theta0, 2);
-            result2 = pow(Velocity_Mag, 2);
-            lambda = result1*Laminar_Viscosity_i/(U_i[0]*result2)*du_ds;
-            if (lambda < -0.1)
-                x3 = -0.1;
-            else
-                x3 = lambda;
-            if (x3 > 0.1)
-                lambda = 0.1;
-            else
-                lambda = x3;
-            if (lambda <= 0.0) {
-                result1 = pow(lambda, 2);
-                result2 = pow(lambda, 3);
-                result3 = pow(tu/1.5, 1.5);
-                f_lambda0 = 1 - (-12.986*lambda-123.66*result1-405.689*result2
-                    )*exp(-result3);
-            } else
-                f_lambda0 = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
-            fkd[0] = 0.0;
-            fk[0] = re_theta - re_theta0;
-            fkd[1] = 0.0;
-            fk[1] = f_lambda - f_lambda0;
-            /*-- Flip sign of fk for RHS of Newton's method --*/
-            fkd[0] = 0.0;
-            fk[0] *= -1.;
-            fkd[1] = 0.0;
-            fk[1] *= -1.;
-            /*-- Check for convergence --*/
-            arg1 = fk[0]*fk[0] + fk[1]*fk[1];
-            normres = sqrt(arg1);
-            // cout << normres << " " << re_theta << " " << f_lambda << " " << lambda << endl;
-            if (normres < newton_tol)
-                break;
-            else {
-                /*-- Evaluate the Jacobian of the nonlinear correlation system d(fk)/dx --
-                */
-                // cout << "Solution converged." << endl;
-                // cout << "x: {" << re_theta << " " << f_lambda <<  "}" << endl;
-                Jd[0][0] = 0.0;
-                J[0][0] = 1.;
-                if (tu <= 1.3) {
-                    result1 = pow(tu, 2);
-                    Jd[0][1] = 0.0;
-                    J[0][1] = 1173.51 - 589.428*tu + 0.2196/result1;
-                } else {
-                    result1 = pow(tu - 0.5658, -0.671);
-                    Jd[0][1] = 0.0;
-                    J[0][1] = 331.5*result1;
-                }
-                Jd[0][1] = 0.0;
-                J[0][1] *= -1;
-                result1 = pow(Velocity_Mag, 2);
-                dre_dlamb = 2*re_theta*Laminar_Viscosity_i/(U_i[0]*result1)*
-                    du_ds;
-                if (lambda <= 0) {
-                    result1 = pow(lambda, 2);
-                    result2 = pow(tu/1.5, 1.5);
-                    Jd[1][0] = 0.0;
-                    J[1][0] = 0. - (-12.986-2*123.66*lambda-3*405.689*result1)
-                        *dre_dlamb*exp(-result2);
-                } else {
-                    Jd[1][0] = 0.0;
-                    J[1][0] = 0. + 0.275*(0.0+35.0*exp(-35.0*lambda))*
-                        dre_dlamb*exp(-tu/0.5);
-                }
-                Jd[1][0] = 0.0;
-                J[1][0] *= -1;
-                Jd[1][1] = 0.0;
-                J[1][1] = 1.;
-                /*-- Forward solve --*/
-                factor = J[1][0]/J[0][0];
-                Jd[1][0] = 0.0;
-                J[1][0] = 0.0;
-                Jd[1][1] = 0.0;
-                J[1][1] -= J[0][1]*factor;
-                fkd[1] = 0.0;
-                fk[1] -= fk[0]*factor;
-                /*-- Back substitution --*/
-                dxd[1] = 0.0;
-                dx[1] = fk[1]/J[1][1];
-                dxd[0] = 0.0;
-                dx[0] = (fk[0]-J[0][1]*dx[1])/J[0][0];
-                re_theta += dx[0];
-                f_lambda += dx[1];
-            }
-        }
-        /*-- Restore tu to its regular value --*/
-        tu /= 100;
-        /*-- Calculate blending function f_theta --*/
-        time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*
-            Velocity_Mag);
-        // Deactivated the f_wake parameter...
-        theta_bld = Laminar_Viscosity_i*TransVar_id[1]/U_i[0]/(U_i[0]*
-            Velocity_Mag);
-        theta_bl = TransVar_i[1]/U_i[0]*Laminar_Viscosity_i/(U_i[0]*
-            Velocity_Mag);
-        delta_bld = 7.5*theta_bld;
-        delta_bl = 7.5*theta_bl;
-        deltad = 50.0*Vorticity*dist_i*delta_bld/Velocity_Mag;
-        delta = 50.0*Vorticity*dist_i/Velocity_Mag*delta_bl + 1e-20;
-        f_wake = 1.;
-        var1d = TransVar_id[0]/U_i[0]/(1.0-1./c_e2);
-        var1 = (TransVar_i[0]/U_i[0]-1./c_e2)/(1.0-1./c_e2);
-        result1d = pow_d(var1, var1d, 2, &result1);
-        var1d = -result1d;
-        var1 = 1. - result1;
-        result1d = pow_d(dist_i/delta, -(dist_i*deltad/(delta*delta)), 4, &
-            result1);
-        x5d = -(f_wake*result1d*exp(-result1));
-        x5 = f_wake*exp(-result1);
-        if (x5 < var1) {
-            x4d = var1d;
-            x4 = var1;
-        } else {
-            x4d = x5d;
-            x4 = x5;
-        }
-        if (x4 > 1.0) {
-            f_theta = 1.0;
-            f_thetad = 0.0;
-        } else {
-            f_thetad = x4d;
-            f_theta = x4;
-        }
-        //f_theta = min(var1,1.0);
-        val_residuald[1] = c_theta*U_i[0]*(-(f_thetad*(re_theta-TransVar_i[1]/
-            U_i[0]))-(1.-f_theta)*TransVar_id[1]/U_i[0])/time_scale;
-        val_residual[1] = c_theta*U_i[0]/time_scale*(1.-f_theta)*(re_theta-
-            TransVar_i[1]/U_i[0]);
-        val_residuald[1] = Volume*val_residuald[1];
-        val_residual[1] *= Volume;
-    } else
-        *val_residuald = 0.0;
+	double re_theta_c, flen, re_v, f_onset1, f_onset2, f_onset3, f_onset,
+	f_turb;
+	double re_theta_cd, f_onset1d, f_onset2d, f_onsetd;
+	double prod, des;
+	double prodd, desd;
+	double r_t;
+	double delta, theta, lambda, var1, f_theta;
+	double deltad, var1d, f_thetad;
+	double theta_bl, f_reattach;
+	double theta_bld;
+	double delta_bl, f_wake;
+	double delta_bld;
+	double dU_dx, dU_dy, dU_dz;
+	double fk[2], dx[2], J[2][2];
+	double re_theta0, f_lambda0, dre_dlamb, normres, factor;
+	double newton_tol = 1e-10;
+	int iter;
+	double result1;
+	double result1d;
+	double result2;
+	double arg1;
+	double arg1d;
+	float result10;
+	float result10d;
+	double x4;
+	double x3;
+	double x2;
+	double x1;
+	double x1d;
+	double x4d;
+	double x3d;
+	double y1;
+	double y1d;
+	val_residuald[0] = 0.0;
+	val_residual[0] = 0.0;
+	val_residuald[1] = 0.0;
+	val_residual[1] = 0.0;
+	/*-- Medida 2011, eq. 29-30 --*/
+	result1 = pow(tu, 3);
+	result2 = pow(tu, 2);
+	re_theta_cd = (4.45*result1-5.7*result2+1.37*tu+0.585)*TransVar_id[1]/U_i[
+	                                                                          0];
+	re_theta_c = (4.45*result1-5.7*result2+1.37*tu+0.585)*TransVar_i[1]/U_i[0]
+	                                                                        ;
+	result1 = pow(tu, 2);
+	flen = 0.171*result1 - 0.0083*tu + 0.0306;
+	result1 = pow(dist_i, 2.);
+	re_v = U_i[0]*result1/Laminar_Viscosity_i*strain;
+	/*-- f_onset controls transition onset location --*/
+	// Vorticity Reynolds number
+	r_t = Eddy_Viscosity_i/Laminar_Viscosity_i;
+	f_onset1d = -(re_v*2.193*re_theta_cd/(2.193*re_theta_c*(2.193*re_theta_c))
+	);
+	f_onset1 = re_v/(2.193*re_theta_c);
+	y1d = pow_d(f_onset1, f_onset1d, 4., &y1);
+	if (f_onset1 < y1) {
+		x1d = y1d;
+		x1 = y1;
+	} else {
+		x1d = f_onset1d;
+		x1 = f_onset1;
+	}
+	if (x1 > 2.) {
+		f_onset2 = 2.;
+		f_onset2d = 0.0;
+	} else {
+		f_onset2d = x1d;
+		f_onset2 = x1;
+	}
+	result1 = pow(0.4*r_t, 3);
+	x2 = 1. - result1;
+	if (x2 < 0.)
+		f_onset3 = 0.;
+	else
+		f_onset3 = x2;
+	if (f_onset2 - f_onset3 < 0.) {
+		f_onset = 0.;
+		f_onsetd = 0.0;
+	} else {
+		f_onsetd = f_onset2d;
+		f_onset = f_onset2 - f_onset3;
+	}
+	result1 = pow(0.25*r_t, 4);
+	f_turb = exp(-result1);
+	// Medida eq. 10
+	arg1d = (f_onsetd*TransVar_i[0]+f_onset*TransVar_id[0])/U_i[0];
+	arg1 = f_onset*TransVar_i[0]/U_i[0];
+	result10d = (arg1 == 0.0 ? 0.0 : arg1d/(2.0*sqrt(arg1)));
+	result10 = sqrt(arg1);
+	prodd = flen*c_a1*U_i[0]*strain*result10d;
+	prod = flen*c_a1*U_i[0]*strain*result10;
+	prodd = prodd*(1.-c_e1*TransVar_i[0]/U_i[0]) - prod*c_e1*TransVar_id[0]/
+			U_i[0];
+	prod = prod*(1.-c_e1*TransVar_i[0]/U_i[0]);
+	desd = f_turb*c_a2*Vorticity*TransVar_id[0];
+	des = c_a2*U_i[0]*Vorticity*TransVar_i[0]/U_i[0]*f_turb;
+	desd = desd*(c_e2*TransVar_i[0]/U_i[0]-1.) + des*c_e2*TransVar_id[0]/U_i[0
+	                                                                         ];
+	des = des*(c_e2*TransVar_i[0]/U_i[0]-1.);
+	val_residuald[0] = prodd - desd;
+	val_residual[0] = prod - des;
+	val_residuald[0] = Volume*val_residuald[0];
+	val_residual[0] *= Volume;
+	/*-- REtheta eq: --*/
+	// Deactivated the f_wake parameter...
+	theta_bld = Laminar_Viscosity_i*TransVar_id[1]/U_i[0]/(U_i[0]*Velocity_Mag
+	);
+	theta_bl = TransVar_i[1]/U_i[0]*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag);
+	delta_bld = 7.5*theta_bld;
+	delta_bl = 7.5*theta_bl;
+	deltad = 50.0*Vorticity*dist_i*delta_bld/Velocity_Mag;
+	delta = 50.0*Vorticity*dist_i/Velocity_Mag*delta_bl + 1e-20;
+	f_wake = 1.;
+	var1d = TransVar_id[0]/U_i[0]/(1.0-1./c_e2);
+	var1 = (TransVar_i[0]/U_i[0]-1./c_e2)/(1.0-1./c_e2);
+	result1d = pow_d(var1, var1d, 2, &result1);
+	var1d = -result1d;
+	var1 = 1. - result1;
+	result1d = pow_d(dist_i/delta, -(dist_i*deltad/(delta*delta)), 4, &result1
+	);
+	x4d = -(f_wake*result1d*exp(-result1));
+	x4 = f_wake*exp(-result1);
+	if (x4 < var1) {
+		x3d = var1d;
+		x3 = var1;
+	} else {
+		x3d = x4d;
+		x3 = x4;
+	}
+	if (x3 > 1.0) {
+		f_theta = 1.0;
+		f_thetad = 0.0;
+	} else {
+		f_thetad = x3d;
+		f_theta = x3;
+	}
+	//f_theta = min(var1,1.0);
+	val_residuald[1] = c_theta*U_i[0]*(-(f_thetad*(re_theta_t-TransVar_i[1]/U_i[
+	                                                                          0]))-(1.-f_theta)*TransVar_id[1]/U_i[0])/time_scale;
+	val_residual[1] = c_theta*U_i[0]/time_scale*(1.-f_theta)*(re_theta_t-
+			TransVar_i[1]/U_i[0]);
+	val_residuald[1] = Volume*val_residuald[1];
+	val_residual[1] *= Volume;
+
 
 }
