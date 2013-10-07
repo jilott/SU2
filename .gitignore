@@ -20,3 +20,11 @@
 
 # Compiled Makefiles
 Makefile
+/configure.orig
+/configure~
+/junk
+/junk~
+/.project
+/config.log
+/config.status
+/.cproject
