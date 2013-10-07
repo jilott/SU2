@@ -966,6 +966,7 @@ CTurbSASolver::CTurbSASolver(CGeometry *geometry, CConfig *config, unsigned shor
                 
 				/*--- Instantiate the solution at this node, note that the eddy viscosity should be recomputed ---*/
 				node[iPoint_Local] = new CTurbSAVariable(Solution[0], muT, nDim, nVar, config);
+				cout << Solution[0] << endl;
 			}
 			iPoint_Global++;
 		}

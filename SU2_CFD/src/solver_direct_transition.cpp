@@ -28,11 +28,16 @@ CTransLMSolver::CTransLMSolver(void) : CTurbSolver() {}
 CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh) : CTurbSolver() {
 	unsigned short iVar, iDim;
 	unsigned long iPoint, index;
-	double Viscosity_Inf, tu_Inf, nu_tilde_Inf, Factor_nu_Inf, dull_val, rey, mach;
+	double Viscosity_Inf, tu_Inf, dull_val, rey, mach;
 	ifstream restart_file;
 	char *cstr;
 	string text_line;
 	bool restart = (config->GetRestart() || config->GetRestart_Flow());
+	bool incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
+	bool freesurface = (config->GetKind_Regime() == FREESURFACE);
+    bool compressible = (config->GetKind_Regime() == COMPRESSIBLE);
+    bool dual_time = ((config->GetUnsteady_Simulation() == DT_STEPPING_1ST) ||
+                      (config->GetUnsteady_Simulation() == DT_STEPPING_2ND));
 	
   cout << "Entered constructor for CTransLMSolver -AA\n";
 	Gamma = config->GetGamma();
@@ -49,26 +54,26 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
 	nVar = 2;
 	
 	if (iMesh == MESH_0) {
-		
+
 		/*--- Define some auxillary vectors related to the residual ---*/
 		Residual     = new double[nVar]; Residual_RMS = new double[nVar];
 		Residual_i   = new double[nVar]; Residual_j   = new double[nVar];
-    Residual_Max = new double[nVar]; Point_Max    = new unsigned long[nVar];
-    
+		Residual_Max = new double[nVar]; Point_Max    = new unsigned long[nVar];
+
 
 		/*--- Define some auxiliar vector related with the solution ---*/
 		Solution   = new double[nVar];
 		Solution_i = new double[nVar]; Solution_j = new double[nVar];
-		
+
 		/*--- Define some auxiliar vector related with the geometry ---*/
 		Vector_i = new double[nDim]; Vector_j = new double[nDim];
-		
+
 		/*--- Define some auxiliar vector related with the flow solution ---*/
 		FlowSolution_i = new double [nDim+2]; FlowSolution_j = new double [nDim+2];
-		
-    LinSysSol.Initialize(nPoint, nPointDomain, nVar, 0.0);
-    LinSysRes.Initialize(nPoint, nPointDomain, nVar, 0.0);
-    
+
+		LinSysSol.Initialize(nPoint, nPointDomain, nVar, 0.0);
+		LinSysRes.Initialize(nPoint, nPointDomain, nVar, 0.0);
+
 		/*--- Jacobians and vector structures for implicit computations ---*/
 		if (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT) {
 
@@ -81,26 +86,27 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
 			}
 			/*--- Initialization of the structure of the whole Jacobian ---*/
 			Jacobian.Initialize(nPoint, nPointDomain, nVar, nVar, geometry);
-      
+
 		}
-	
-	/*--- Computation of gradients by least squares ---*/
-	if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) {
-		/*--- S matrix := inv(R)*traspose(inv(R)) ---*/
-		Smatrix = new double* [nDim];
-		for (iDim = 0; iDim < nDim; iDim++)
-			Smatrix[iDim] = new double [nDim];
-		/*--- c vector := transpose(WA)*(Wb) ---*/
-		cvector = new double* [nVar];
-		for (iVar = 0; iVar < nVar; iVar++)
-			cvector[iVar] = new double [nDim];
+
+		/*--- Computation of gradients by least squares ---*/
+		if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) {
+			/*--- S matrix := inv(R)*traspose(inv(R)) ---*/
+			Smatrix = new double* [nDim];
+			for (iDim = 0; iDim < nDim; iDim++)
+				Smatrix[iDim] = new double [nDim];
+			/*--- c vector := transpose(WA)*(Wb) ---*/
+			cvector = new double* [nVar];
+			for (iVar = 0; iVar < nVar; iVar++)
+				cvector[iVar] = new double [nDim];
+		}
 	}
-	
+
 	/*--- Read farfield conditions from config ---*/
 	Density_Inf       = config->GetDensity_FreeStreamND();
-  Viscosity_Inf     = config->GetViscosity_FreeStreamND();
-  Intermittency_Inf = config->GetIntermittency_FreeStream();
-  tu_Inf            = config->GetTurbulenceIntensity_FreeStream();
+	Viscosity_Inf     = config->GetViscosity_FreeStreamND();
+	Intermittency_Inf = config->GetIntermittency_FreeStream();
+	tu_Inf            = config->GetTurbulenceIntensity_FreeStream();
 	
   /*-- Initialize REth from correlation --*/
   if (tu_Inf <= 1.3) {
@@ -114,52 +120,109 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
 //  REth_Inf *= mach/rey;
   cout << "REth_Inf = " << REth_Inf << ", rey: "<< rey << " -AA" << endl;
 	
-	/*--- Factor_nu_Inf in [3.0, 5.0] ---*/
-	Factor_nu_Inf = config->GetNuFactor_FreeStream();
-	nu_tilde_Inf  = Factor_nu_Inf*Viscosity_Inf/Density_Inf;
-	
-	/*--- Eddy viscosity ---*/
-	double Ji, Ji_3, fv1, cv1_3 = 7.1*7.1*7.1;
-	double muT_Inf;
-	Ji = nu_tilde_Inf/Viscosity_Inf*Density_Inf;
-	Ji_3 = Ji*Ji*Ji;
-	fv1 = Ji_3/(Ji_3+cv1_3);
-	muT_Inf = Density_Inf*fv1*nu_tilde_Inf;
-	
 	/*--- Restart the solution from file information ---*/
 	if (!restart) {
 		for (iPoint = 0; iPoint < geometry->GetnPoint(); iPoint++)
 			node[iPoint] = new CTransLMVariable(Density_Inf, Intermittency_Inf, REth_Inf, nDim, nVar, config);
 
 	}
-
-	}
 	else {
-    cout << "No LM restart yet!!" << endl; // TODO, Aniket
-    int j;
-    cin >> j;
-		string mesh_filename = config->GetSolution_FlowFileName();
-		cstr = new char [mesh_filename.size()+1];
-		strcpy (cstr, mesh_filename.c_str());
-		restart_file.open(cstr, ios::in);
+
+		/*--- Restart the solution from file information ---*/
+		ifstream restart_file;
+		string filename = config->GetSolution_FlowFileName();
+
+        /*--- Modify file name for an unsteady restart ---*/
+        if (dual_time) {
+            int Unst_RestartIter;
+            if (config->GetUnsteady_Simulation() == DT_STEPPING_1ST)
+                Unst_RestartIter = int(config->GetUnst_RestartIter())-1;
+            else
+                Unst_RestartIter = int(config->GetUnst_RestartIter())-2;
+            filename = config->GetUnsteady_FileName(filename, Unst_RestartIter);
+        }
+
+        /*--- Open the restart file, throw an error if this fails. ---*/
+		restart_file.open(filename.data(), ios::in);
 		if (restart_file.fail()) {
-			cout << "There is no turbulent restart file!!" << endl;
+			cout << "There is no transition restart file!!" << endl;
 			cout << "Press any key to exit..." << endl;
 			cin.get();
 			exit(1);
 		}
-		
-		for(iPoint = 0; iPoint < geometry->GetnPoint(); iPoint++) {
-			getline(restart_file,text_line);
-			istringstream point_line(text_line);
-			if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-			if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0];
-			node[iPoint] = new CTurbSAVariable(Solution[0], 0, nDim, nVar, config);
+
+		/*--- In case this is a parallel simulation, we need to perform the
+         Global2Local index transformation first. ---*/
+		long *Global2Local;
+		Global2Local = new long[geometry->GetGlobal_nPointDomain()];
+		/*--- First, set all indices to a negative value by default ---*/
+		for(iPoint = 0; iPoint < geometry->GetGlobal_nPointDomain(); iPoint++) {
+			Global2Local[iPoint] = -1;
 		}
+		/*--- Now fill array with the transform values only for local points ---*/
+		for(iPoint = 0; iPoint < nPointDomain; iPoint++) {
+			Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
+		}
+
+		/*--- Read all lines in the restart file ---*/
+		long iPoint_Local; unsigned long iPoint_Global = 0; string text_line;
+
+        /*--- The first line is the header ---*/
+        getline (restart_file, text_line);
+
+		while (getline (restart_file,text_line)) {
+			istringstream point_line(text_line);
+
+			/*--- Retrieve local index. If this node from the restart file lives
+             on a different processor, the value of iPoint_Local will be -1.
+             Otherwise, the local index for this node on the current processor
+             will be returned and used to instantiate the vars. ---*/
+			iPoint_Local = Global2Local[iPoint_Global];
+
+			if (iPoint_Local >= 0) {
+
+				double Density;
+				if (compressible) {
+					if (nDim == 2) point_line >> index >> dull_val >> dull_val >> Density >> dull_val>> dull_val>> dull_val >> dull_val >> Solution[0] >> Solution[1];
+					if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> Density >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1];
+
+				}
+				if (incompressible) {
+					if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1];
+					if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1];
+				}
+
+                if (freesurface) {
+					if (nDim == 2) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1];
+					if (nDim == 3) point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >>  dull_val >> dull_val >> Solution[0] >> Solution[1];
+				}
+
+				/*--- Instantiate the solution at this node, note that the eddy viscosity should be recomputed ---*/
+    			node[iPoint_Local] = new CTransLMVariable(Density, Solution[0]/Density, Solution[1]/Density, nDim, nVar, config);
+
+    			/*--- Compute gamma_eff, which will be needed in first iteration of turbulence model ---*/
+    			node[iPoint_Local]->SetGammaSep(1.0); // TODO: Need to recompute gamma_sep for restart
+    			node[iPoint_Local]->ComputeGammaEff(Density);
+			}
+			iPoint_Global++;
+		}
+
+		/*--- Instantiate the variable class with an arbitrary solution
+         at any halo/periodic nodes. The initial solution can be arbitrary,
+         because a send/recv is performed immediately in the solver. ---*/
+		for(iPoint = nPointDomain; iPoint < nPoint; iPoint++) {
+			node[iPoint] = new CTransLMVariable(Density_Inf, Intermittency_Inf, REth_Inf, nDim, nVar, config);
+		}
+
+		/*--- Close the restart file ---*/
 		restart_file.close();
+
+		/*--- Free memory needed for the transformation ---*/
+		delete [] Global2Local;
 	}
 
-
+    /*--- MPI solution ---*/
+    Set_MPI_Solution(geometry, config);
 
 }
 

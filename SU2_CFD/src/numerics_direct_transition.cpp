@@ -496,7 +496,7 @@ double CSourcePieceWise_TransLM::corr_func(double lambda_in) {
 
 void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 
-	double re_theta_lim, dU_dx, dU_dy, dU_dz;
+	double dU_dx, dU_dy, dU_dz;
 
 	double lambda_a, lambda_b, lambda_c, lambda;
 
@@ -515,9 +515,16 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 	Vorticity = fabs(PrimVar_Grad_i[1][1]-PrimVar_Grad_i[2][0]);
 
 	/*-- Strain = sqrt(2*Sij*Sij) --*/
-	strain = sqrt(2.*(    PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]
-	                                                             +  0.5*pow(PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0],2)
-	+  PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
+	// strain = sqrt(0.5*(    PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]
+	//                +  2.0*PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0]
+    //                +      PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
+	strain = 0.0;
+	for (int i=0; i<nDim; i++) {
+		for(int j=0; j<nDim; j++) {
+			strain += PrimVar_Grad_i[i+1][j]*PrimVar_Grad_i[i+1][j];
+		}
+	}
+	strain = sqrt(2*strain);
 
 	if (nDim==2) {
 		Velocity_Mag = sqrt(U_i[1]*U_i[1]+U_i[2]*U_i[2])/U_i[0];
@@ -545,8 +552,6 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 			U_i[2]/(U_i[0]*Velocity_Mag) * dU_dy;
 	if (nDim==3)
 		du_ds += U_i[3]/(U_i[0]*Velocity_Mag) * dU_dz;
-
-	re_theta_lim = 20.;
 
 	/*-- Fixed-point iterations to solve REth correlation --*/
 	f_lambda = 1.;
@@ -732,8 +737,8 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	val_residual[1] *= Volume;
 
 	//SU2_CPP2C COMMENT START
-	//sagt_debug << TransVar_i[0]/U_i[0] << " " << TransVar_i[1]/U_i[0] << " "
-	//		<< re_theta_t << " " << flen << " " << re_theta_c << endl;
+	sagt_debug << TransVar_i[0]/U_i[0] << " " << TransVar_i[1]/U_i[0] << " "
+			<< re_theta_t << " " << flen << " " << re_theta_c << endl;
 
 	/*-- Calculate term for separation correction --*/
 	f_reattach = exp(-pow(0.05*r_t,4));
