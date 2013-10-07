@@ -2,7 +2,7 @@
  * \file numerics_structure.inl
  * \brief In-Line subroutines of the <i>numerics_structure.hpp</i> file.
  * \author Aerospace Design Laboratory (Stanford University) <http://su2.stanford.edu>.
- * \version 2.0.7
+ * \version 2.0.8
  *
  * Stanford University Unstructured (SU2).
  * Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).
@@ -67,6 +67,12 @@ inline void CNumerics::ComputeResidual_Axisymmetric(double *val_residual, CConfi
 inline void CNumerics::ComputeResidual_Axisymmetric_ad(double *val_residual, double *val_residuald, CConfig *config) { }
 
 inline void CNumerics::SetJacobian_Axisymmetric(double **val_Jacobian_i, CConfig *config) { }
+
+inline void CNumerics::ComputeVibRelaxation(double *val_residual, double **val_Jacobian_i, CConfig *config) { }
+
+inline void CNumerics::ComputeChemistry(double *val_residual, double **val_Jacobian_i, CConfig *config) { }
+
+inline void CNumerics::GetKeqConstants(double *A, unsigned short val_reaction, CConfig *config) { } 
 
 inline void CNumerics::ComputeResidual_Chemistry(double *val_residual, CConfig *config) { }
 
@@ -552,7 +558,7 @@ inline double CSourcePieceWise_TurbSA::GetDestruction(void) { return Destruction
 
 inline double CSourcePieceWise_TurbSA::GetCrossProduction(void) { return CrossProduction; }
 
-inline void CSourcePieceWise_Plasma::SetElecField(double *val_Efield) { ElectricField = val_Efield; }
+inline void CSourcePieceWise_Plasma::SetElecField(double *val_Efield) { poissonField = val_Efield; }
 
 inline double* CSourcePieceWise_Plasma::GetMagneticField() { return JcrossB; }
 

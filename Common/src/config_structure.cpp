@@ -2,7 +2,7 @@
  * \file config_structure.cpp
  * \brief Main file for reading the config file.
  * \author Aerospace Design Laboratory (Stanford University) <http://su2.stanford.edu>.
- * \version 2.0.7
+ * \version 2.0.8
  *
  * Stanford University Unstructured (SU2).
  * Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).
@@ -153,9 +153,9 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddSpecialOption("CATALYTIC_WALL", CatalyticWall, SetBoolOption, false);
 	/* DESCRIPTION: Far-field boundary marker(s) */
 	AddMarkerOption("MARKER_FAR", nMarker_FarField, Marker_FarField);
-	/* DESCRIPTION: Symmetry boundary marker(s) */
+	/* DESCRIPTION: Symmetry boundary condition */
 	AddMarkerOption("MARKER_SYM", nMarker_SymWall, Marker_SymWall);
-	/* DESCRIPTION: Near-Field boundary marker(s) */
+	/* DESCRIPTION: Near-Field boundary condition */
 	AddMarkerOption("MARKER_NEARFIELD", nMarker_NearFieldBound, Marker_NearFieldBound);
 	/* DESCRIPTION: Zone interface boundary marker(s) */
 	AddMarkerOption("MARKER_INTERFACE", nMarker_InterfaceBound, Marker_InterfaceBound);
@@ -163,9 +163,9 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddMarkerOption("MARKER_DIRICHLET", nMarker_Dirichlet, Marker_Dirichlet);
   /* DESCRIPTION: Neumann boundary marker(s) */
 	AddMarkerOption("MARKER_NEUMANN", nMarker_Neumann, Marker_Neumann);
-  /* DESCRIPTION: Electric dirichlet boundary marker(s) */
+  /* DESCRIPTION: poisson dirichlet boundary marker(s) */
 	AddMarkerDirichlet("ELEC_DIRICHLET", nMarker_Dirichlet_Elec, Marker_Dirichlet_Elec, Dirichlet_Value );
-	/* DESCRIPTION: Electric neumann boundary marker(s) */
+	/* DESCRIPTION: poisson neumann boundary marker(s) */
 	AddMarkerOption("ELEC_NEUMANN", nMarker_Neumann_Elec, Marker_Neumann_Elec);
 	/* DESCRIPTION: Custom boundary marker(s) */
 	AddMarkerOption("MARKER_CUSTOM", nMarker_Custom, Marker_Custom);
@@ -212,9 +212,9 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
    Format: (nacelle exhaust marker, total nozzle temp, total nozzle pressure, ... )*/
 	AddMarkerInlet("MARKER_NACELLE_EXHAUST", nMarker_NacelleExhaust, Marker_NacelleExhaust, Nozzle_Ttotal, Nozzle_Ptotal);
 	/* DESCRIPTION: Displacement boundary marker(s) */
-  AddMarkerDisplacement("MARKER_DISPL", nMarker_Displacement, Marker_Displacement, Displ_Value);
+  AddMarkerDisplacement("MARKER_NORMAL_DISPL", nMarker_Displacement, Marker_Displacement, Displ_Value);
 	/* DESCRIPTION: Load boundary marker(s) */
-	AddMarkerLoad("MARKER_LOAD", nMarker_Load, Marker_Load, Load_Value);
+	AddMarkerLoad("MARKER_NORMAL_LOAD", nMarker_Load, Marker_Load, Load_Value);
 	/* DESCRIPTION: Flow load boundary marker(s) */
 	AddMarkerFlowLoad("MARKER_FLOWLOAD", nMarker_FlowLoad, Marker_FlowLoad, FlowLoad_Value);
 	/* DESCRIPTION: FW-H boundary marker(s) */
@@ -260,8 +260,6 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddScalarOption("TURB_CFL_REDUCTION", Turb_CFLRedCoeff, 1.0);
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the turbulent adjoint problem */
 	AddScalarOption("ADJTURB_CFL_REDUCTION", AdjTurb_CFLRedCoeff, 1.0);
-  /* DESCRIPTION: Reduction factor of the CFL coefficient in the level set problem */
-	AddScalarOption("LEVELSET_CFL_REDUCTION", LevelSet_CFLRedCoeff, 1E-2);
 	/* DESCRIPTION: Number of total iterations */
 	AddScalarOption("EXT_ITER", nExtIter, 999999);
 	// these options share nRKStep as their size, which is not a good idea in general
@@ -281,8 +279,10 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddScalarOption("UNST_RESTART_ITER", Unst_RestartIter, 0);
 	/* DESCRIPTION: Time discretization */
 	AddEnumOption("TIME_DISCRE_FLOW", Kind_TimeIntScheme_Flow, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
-	/* DESCRIPTION: Time discretization */
-	AddEnumOption("TIME_DISCRE_LEVELSET", Kind_TimeIntScheme_LevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("TIME_DISCRE_TNE2", Kind_TimeIntScheme_TNE2, Time_Int_Map, "EULER_IMPLICIT");
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("TIME_DISCRE_ADJTNE2", Kind_TimeIntScheme_AdjTNE2, Time_Int_Map, "EULER_IMPLICIT");
 	/* DESCRIPTION: Time discretization */
 	AddEnumOption("TIME_DISCRE_ADJLEVELSET", Kind_TimeIntScheme_AdjLevelSet, Time_Int_Map, "RUNGE-KUTTA_EXPLICIT");
 	/* DESCRIPTION: Time discretization */
@@ -301,7 +301,11 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddEnumOption("TIME_DISCRE_WAVE", Kind_TimeIntScheme_Wave, Time_Int_Map, "EULER_IMPLICIT");
 	/* DESCRIPTION: Time discretization */
 	AddEnumOption("TIME_DISCRE_FEA", Kind_TimeIntScheme_FEA, Time_Int_Map, "EULER_IMPLICIT");
-
+	/* DESCRIPTION: Time discretization */
+	AddEnumOption("TIME_DISCRE_HEAT", Kind_TimeIntScheme_Heat, Time_Int_Map, "EULER_IMPLICIT");
+  /* DESCRIPTION: Time discretization */
+	AddEnumOption("TIME_DISCRE_POISSON", Kind_TimeIntScheme_Poisson, Time_Int_Map, "EULER_IMPLICIT");
+  
 	/*--- Options related to the linear solvers ---*/
 	/* CONFIG_CATEGORY: Linear solver definition */
   
@@ -535,13 +539,6 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddArrayOption("AD_COEFF_LIN", 2, Kappa_LinFlow, default_vec_3d);
   
 	/* DESCRIPTION: Slope limiter */
-	AddEnumOption("SLOPE_LIMITER_LEVELSET", Kind_SlopeLimit_LevelSet, Limiter_Map, "NONE");
-	/* DESCRIPTION: Convective numerical method */
-	AddConvectOption("CONV_NUM_METHOD_LEVELSET", Kind_ConvNumScheme_LevelSet, Kind_Centered_LevelSet, Kind_Upwind_LevelSet);
-	/* DESCRIPTION: Source term numerical method */
-	AddEnumOption("SOUR_NUM_METHOD_LEVELSET", Kind_SourNumScheme_LevelSet, Source_Map, "NONE");
-  
-	/* DESCRIPTION: Slope limiter */
 	AddEnumOption("SLOPE_LIMITER_ADJLEVELSET", Kind_SlopeLimit_AdjLevelSet, Limiter_Map, "NONE");
 	/* DESCRIPTION: Convective numerical method */
 	AddConvectOption("CONV_NUM_METHOD_ADJLEVELSET", Kind_ConvNumScheme_AdjLevelSet, Kind_Centered_AdjLevelSet, Kind_Upwind_AdjLevelSet);
@@ -549,6 +546,27 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddEnumOption("VISC_NUM_METHOD_ADJLEVELSET", Kind_ViscNumScheme_AdjLevelSet, Viscous_Map, "NONE");
 	/* DESCRIPTION: Source term numerical method */
 	AddEnumOption("SOUR_NUM_METHOD_ADJLEVELSET", Kind_SourNumScheme_AdjLevelSet, Source_Map, "NONE");
+  
+  /* DESCRIPTION: Convective numerical method */
+	AddConvectOption("CONV_NUM_METHOD_TNE2", Kind_ConvNumScheme_TNE2, Kind_Centered_TNE2, Kind_Upwind_TNE2);
+	/* DESCRIPTION: Viscous numerical method */
+	AddEnumOption("VISC_NUM_METHOD_TNE2", Kind_ViscNumScheme_TNE2, Viscous_Map, "NONE");
+	/* DESCRIPTION: Source term numerical method */
+	AddEnumOption("SOUR_NUM_METHOD_TNE2", Kind_SourNumScheme_TNE2, Source_Map, "NONE");
+	/* DESCRIPTION: Slope limiter */
+	AddEnumOption("SLOPE_LIMITER_TNE2", Kind_SlopeLimit_TNE2, Limiter_Map, "NONE");
+  
+  /* DESCRIPTION: Convective numerical method */
+	AddConvectOption("CONV_NUM_METHOD_ADJTNE2", Kind_ConvNumScheme_AdjTNE2, Kind_Centered_AdjTNE2, Kind_Upwind_AdjTNE2);
+	/* DESCRIPTION: Viscous numerical method */
+	AddEnumOption("VISC_NUM_METHOD_ADJTNE2", Kind_ViscNumScheme_AdjTNE2, Viscous_Map, "NONE");
+	/* DESCRIPTION: Source term numerical method */
+	AddEnumOption("SOUR_NUM_METHOD_ADJTNE2", Kind_SourNumScheme_AdjTNE2, Source_Map, "NONE");
+	/* DESCRIPTION: Slope limiter */
+	AddEnumOption("SLOPE_LIMITER_ADJTNE2", Kind_SlopeLimit_AdjTNE2, Limiter_Map, "NONE");
+  default_vec_3d[0] = 0.15; default_vec_3d[1] = 0.5; default_vec_3d[2] = 0.02;
+	/* DESCRIPTION: 1st, 2nd and 4th order artificial dissipation coefficients */
+	AddArrayOption("AD_COEFF_ADJTNE2", 3, Kappa_AdjTNE2, default_vec_3d);
   
 	/* DESCRIPTION: Convective numerical method */
 	AddConvectOption("CONV_NUM_METHOD_PLASMA", Kind_ConvNumScheme_Plasma, Kind_Centered_Plasma, Kind_Upwind_Plasma);
@@ -582,14 +600,19 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddEnumOption("SOUR_NUM_METHOD_WAVE", Kind_SourNumScheme_Wave, Source_Map, "NONE");
   
 	/* DESCRIPTION: Viscous numerical method */
-	AddEnumOption("VISC_NUM_METHOD_ELEC", Kind_ViscNumScheme_Elec, Viscous_Map, "NONE");
+	AddEnumOption("VISC_NUM_METHOD_POISSON", Kind_ViscNumScheme_Poisson, Viscous_Map, "NONE");
 	/* DESCRIPTION: Source term numerical method */
-	AddEnumOption("SOUR_NUM_METHOD_ELEC", Kind_SourNumScheme_Elec, Source_Map, "NONE");
+	AddEnumOption("SOUR_NUM_METHOD_POISSON", Kind_SourNumScheme_Poisson, Source_Map, "NONE");
   
 	/* DESCRIPTION: Viscous numerical method */
 	AddEnumOption("VISC_NUM_METHOD_FEA", Kind_ViscNumScheme_FEA, Viscous_Map, "GALERKIN");
 	/* DESCRIPTION: Source term numerical method */
 	AddEnumOption("SOUR_NUM_METHOD_FEA", Kind_SourNumScheme_FEA, Source_Map, "NONE");
+  
+  /* DESCRIPTION: Viscous numerical method */
+	AddEnumOption("VISC_NUM_METHOD_HEAT", Kind_ViscNumScheme_Heat, Viscous_Map, "GALERKIN");
+	/* DESCRIPTION: Source term numerical method */
+	AddEnumOption("SOUR_NUM_METHOD_HEAT", Kind_SourNumScheme_Heat, Source_Map, "NONE");
   
 	/* DESCRIPTION: Source term numerical method */
 	AddEnumOption("SOUR_NUM_METHOD_TEMPLATE", Kind_SourNumScheme_Template, Source_Map, "NONE");
@@ -657,8 +680,16 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddScalarOption("VOLUME_FLOW_FILENAME", Flow_FileName, string("flow"));
 	/* DESCRIPTION: Output file structure (w/o extension) variables */
 	AddScalarOption("VOLUME_STRUCTURE_FILENAME", Structure_FileName, string("structure"));
+	/* DESCRIPTION: Output file structure (w/o extension) variables */
+	AddScalarOption("SURFACE_STRUCTURE_FILENAME", SurfStructure_FileName, string("surface_structure"));
+  /* DESCRIPTION: Output file structure (w/o extension) variables */
+	AddScalarOption("SURFACE_WAVE_FILENAME", SurfWave_FileName, string("surface_wave"));
+  /* DESCRIPTION: Output file structure (w/o extension) variables */
+	AddScalarOption("SURFACE_HEAT_FILENAME", SurfHeat_FileName, string("surface_heat"));
 	/* DESCRIPTION: Output file wave (w/o extension) variables */
 	AddScalarOption("VOLUME_WAVE_FILENAME", Wave_FileName, string("wave"));
+  /* DESCRIPTION: Output file wave (w/o extension) variables */
+	AddScalarOption("VOLUME_HEAT_FILENAME", Heat_FileName, string("heat"));
 	/* DESCRIPTION: Output file adj. wave (w/o extension) variables */
 	AddScalarOption("VOLUME_ADJWAVE_FILENAME", AdjWave_FileName, string("adjoint_wave"));
 	/* DESCRIPTION: Output file adjoint (w/o extension) variables */
@@ -739,8 +770,9 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	/* DESCRIPTION: Free-stream density (1.2886 Kg/m^3 (air), 998.2 Kg/m^3 (water)) */
 	AddScalarOption("FREESTREAM_DENSITY", Density_FreeStream, -1.0);
 	/* DESCRIPTION: Free-stream temperature (273.15 K by default) */
-	AddScalarOption("FREESTREAM_TEMPERATURE", Temperature_FreeStream, 273.15);
-	default_vec_3d[0] = 0.0; default_vec_3d[1] = 0.0; default_vec_3d[2] = 0.0;
+	AddScalarOption("FREESTREAM_TEMPERATURE", Temperature_FreeStream, 273.15);  
+  /* DESCRIPTION: Free-stream vibrational-electronic temperature (273.15 K by default) */
+	AddScalarOption("FREESTREAM_TEMPERATURE_VE", Temperature_ve_FreeStream, 273.15);
 	/* DESCRIPTION: Free-stream velocity (m/s) */
 	AddArrayOption("FREESTREAM_VELOCITY", 3, Velocity_FreeStream, default_vec_3d);
 	/* DESCRIPTION: Free-stream viscosity (1.853E-5 Ns/m^2 (air), 0.798E-3 Ns/m^2 (water)) */
@@ -828,8 +860,8 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddSpecialOption("MAGNET", MagneticForce, SetBoolOption, false);
 	/* DESCRIPTION: Joule heating simulation */
 	AddSpecialOption("JOULE_HEAT", JouleHeating, SetBoolOption, false);
-	/* DESCRIPTION: Flag for running the electric potential solver as part of the plasma solver */
-	AddSpecialOption("ELECTRIC_SOLVER", ElectricSolver, SetBoolOption, false);
+	/* DESCRIPTION: Flag for running the poisson potential solver as part of the plasma solver */
+	AddSpecialOption("poisson_SOLVER", PoissonSolver, SetBoolOption, false);
 	/* DESCRIPTION:  */
 	AddSpecialOption("MACCORMACK_RELAXATION", MacCormackRelaxation, SetBoolOption, false);
 	/* DESCRIPTION: Time stepping of the various species in a steady plasma solution */
@@ -837,7 +869,7 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	/* DESCRIPTION: Time Step for dual time stepping simulations (s) */
 	AddScalarOption("STAGNATION_BFIELD", Stagnation_B, 0.2);
 	/* DESCRIPTION: Time Step for dual time stepping simulations (s) */
-	AddScalarOption("ELECTRICAL_CONDUCTIVITY", Electric_Cond, 2000.0);
+	AddScalarOption("poissonAL_CONDUCTIVITY", poisson_Cond, 2000.0);
 	/* DESCRIPTION: Time Step for dual time stepping simulations (s) */
 	AddScalarOption("DIPOLE_DIST", DipoleDist, 1E-6);
 	/* DESCRIPTION: Restart a Plasma solution from an Euler native solution file */
@@ -862,8 +894,6 @@ void CConfig::SetConfig_Options(unsigned short val_iZone, unsigned short val_nZo
 	AddScalarOption("FREESURFACE_DAMPING_LENGTH", FreeSurface_Damping_Length, 1.0);
 	/* DESCRIPTION: Location of the free surface outlet surface (x or y coordinate) */
 	AddScalarOption("FREESURFACE_OUTLET", FreeSurface_Outlet, 0.0);
-	/* DESCRIPTION: Writing convergence history frequency for the dual time */
-	AddScalarOption("FREESURFACE_REEVALUATION",  FreeSurface_Reevaluation, 1);
   
 	/*--- Options related to the grid deformation ---*/
 	// these options share nDV as their size in the option references; not a good idea
@@ -1017,7 +1047,18 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 	if (Kind_Regime == FREESURFACE) {
 		if (Unsteady_Simulation != DT_STEPPING_2ND) Unsteady_Simulation = DT_STEPPING_1ST;
 	}
+  
+  if (Kind_Solver == POISSON_EQUATION) {
+    Unsteady_Simulation = STEADY;
+  }
 
+  /*--- Set the number of external iterations to 1 for the steady state problem ---*/
+  if ((Kind_Solver == LINEAR_ELASTICITY) || (Kind_Solver == HEAT_EQUATION) ||
+      (Kind_Solver == WAVE_EQUATION) || (Kind_Solver == POISSON_EQUATION)) {
+    if (Unsteady_Simulation == STEADY) nExtIter = 1;
+    else Unst_nIntIter = 2;
+  }
+  
 	/*--- Decide whether we should be writing unsteady solution files. ---*/
 	if (Unsteady_Simulation == STEADY ||
 			Unsteady_Simulation == TIME_STEPPING ||
@@ -1588,11 +1629,13 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 
 	if (Adjoint) {
 		if (Kind_Solver == EULER) Kind_Solver = ADJ_EULER;
-		if (Kind_Solver == AEROACOUSTIC_EULER) Kind_Solver = ADJ_AEROACOUSTIC_EULER;
+    if (Kind_Solver == NAVIER_STOKES) Kind_Solver = ADJ_NAVIER_STOKES;
+    if (Kind_Solver == RANS) Kind_Solver = ADJ_RANS;
+    if (Kind_Solver == TNE2_EULER) Kind_Solver = ADJ_TNE2_EULER;
+		if (Kind_Solver == TNE2_NAVIER_STOKES) Kind_Solver = ADJ_TNE2_NAVIER_STOKES;
+    if (Kind_Solver == AEROACOUSTIC_EULER) Kind_Solver = ADJ_AEROACOUSTIC_EULER;
 		if (Kind_Solver == PLASMA_EULER) Kind_Solver = ADJ_PLASMA_EULER;
 		if (Kind_Solver == PLASMA_NAVIER_STOKES) Kind_Solver = ADJ_PLASMA_NAVIER_STOKES;
-		if (Kind_Solver == NAVIER_STOKES) Kind_Solver = ADJ_NAVIER_STOKES;
-		if (Kind_Solver == RANS) Kind_Solver = ADJ_RANS;
 	}
 
 	if (Linearized) {
@@ -1655,7 +1698,7 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 		cout << "Press any key to exit..." << endl;
 		cin.get();
 		exit(1);
-	}	
+	}
 
 	if (((Kind_Solver == ADJ_NAVIER_STOKES) || (Kind_Solver == ADJ_RANS)) && (Kind_SourNumScheme_AdjFlow == NONE)) {
 		cout << "You must define a source numerical method for the adjoint Navier-Stokes equations!!" << endl;
@@ -1664,14 +1707,557 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 		exit(1);
 	}
 
-    /*--- Set a flag for viscous simulations ---*/
-    Viscous = ((Kind_Solver == NAVIER_STOKES) ||
-               (Kind_Solver == PLASMA_NAVIER_STOKES) ||
-               (Kind_Solver == ADJ_NAVIER_STOKES) ||
-               (Kind_Solver == ADJ_PLASMA_NAVIER_STOKES) ||
-               (Kind_Solver == RANS) ||
-               (Kind_Solver == ADJ_RANS));
+  /*--- Set a flag for viscous simulations ---*/
+  Viscous = ((Kind_Solver == NAVIER_STOKES) ||
+             (Kind_Solver == PLASMA_NAVIER_STOKES) ||
+             (Kind_Solver == ADJ_NAVIER_STOKES) ||
+             (Kind_Solver == ADJ_PLASMA_NAVIER_STOKES) ||
+             (Kind_Solver == RANS) ||
+             (Kind_Solver == ADJ_RANS));
+  
+  if ((Kind_Solver == TNE2_EULER)             ||
+      (Kind_Solver == TNE2_NAVIER_STOKES)     ||
+      (Kind_Solver == ADJ_TNE2_EULER)         ||
+      (Kind_Solver == ADJ_TNE2_NAVIER_STOKES)   ) {
     
+		if (val_izone == ZONE_1 ) {
+			Divide_Element = true;
+			Restart_FlowFileName = "restart_phi.dat";
+			SurfFlowCoeff_FileName = "surface_phi.dat";
+		}
+    
+    unsigned short maxEl = 0;
+    unsigned short iSpecies, iEl;
+    
+		switch (Kind_GasModel) {
+      case ONESPECIES:
+        /*--- Define parameters of the gas model ---*/
+        nMonatomics = 0;
+        nDiatomics  = 1;
+        nSpecies    = nMonatomics + nDiatomics;
+        ionization  = false;
+        
+        /*--- Allocate vectors for gas properties ---*/
+        Molar_Mass         = new double[nSpecies];
+        CharVibTemp        = new double[nSpecies];
+        RotationModes      = new double[nSpecies];
+        Enthalpy_Formation = new double[nSpecies];
+        Ref_Temperature    = new double[nSpecies];
+        nElStates          = new unsigned short[nSpecies];
+        
+        
+        MassFrac_FreeStream = new double[nSpecies];
+        MassFrac_FreeStream[0] = 1.0;
+        
+        /*--- Assign gas properties ---*/
+        // Rotational modes of energy storage
+        RotationModes[0] = 2.0;
+        // Molar mass [kg/kmol]
+        Molar_Mass[0] = 14.0067+15.9994;
+        // Characteristic vibrational temperatures for calculating e_vib [K]
+        //CharVibTemp[0] = 3395.0;
+        CharVibTemp[0] = 1000.0;
+        // Formation enthalpy: (JANAF values, [KJ/Kmol])
+        Enthalpy_Formation[0] = 0.0;					//N2
+        // Reference temperature (JANAF values, [K])
+        Ref_Temperature[0] = 0.0;
+        
+/*        nElStates[0] = 0;
+        CharElTemp   = new double *[nSpecies];
+        degen        = new double *[nSpecies];
+        
+        OSPthetae    = new double[nElStates[0]];
+        OSPthetae[0] = 1.0;
+        OSPg         = new double[nElStates[0]];
+        OSPg[0]      = 1.0;
+        
+        CharElTemp[0] = OSPthetae;
+        degen[0] = OSPg;*/
+ 
+        break;
+        
+      case N2:
+        
+        /*--- Define parameters of the gas model ---*/
+        nMonatomics = 1;
+        nDiatomics  = 1;
+        nSpecies    = nMonatomics + nDiatomics;
+        nReactions  = 2;
+        ionization  = false;
+        
+        /*--- Allocate vectors for gas properties ---*/
+        Molar_Mass           = new double[nSpecies];
+        CharVibTemp          = new double[nSpecies];
+        RotationModes        = new double[nSpecies];
+        Enthalpy_Formation   = new double[nSpecies];
+        Ref_Temperature      = new double[nSpecies];
+        Diss                 = new double[nSpecies];
+        ArrheniusCoefficient = new double[nReactions];
+        ArrheniusEta         = new double[nReactions];
+        ArrheniusTheta       = new double[nReactions];
+        Tcf_a                = new double[nReactions];
+        Tcf_b                = new double[nReactions];
+        Tcb_a                = new double[nReactions];
+        Tcb_b                = new double[nReactions];
+        nElStates            = new unsigned short[nSpecies];
+        Reactions = new int**[nReactions];
+        for (unsigned short iRxn = 0; iRxn < nReactions; iRxn++) {
+          Reactions[iRxn] = new int*[2];
+          for (unsigned short ii = 0; ii < 2; ii++)
+            Reactions[iRxn][ii] = new int[6];
+        }
+        
+        MassFrac_FreeStream = new double[nSpecies];
+        MassFrac_FreeStream[0] = 0.99;
+        MassFrac_FreeStream[1] = 0.01;
+        
+        /*--- Assign gas properties ---*/
+        
+        // Rotational modes of energy storage
+        RotationModes[0] = 2.0;
+        RotationModes[1] = 0.0;
+        
+        // Molar mass [kg/kmol]
+        Molar_Mass[0] = 2.0*14.0067;
+        Molar_Mass[1] = 14.0067;
+        
+        // Characteristic vibrational temperatures
+        CharVibTemp[0] = 3395.0;
+        CharVibTemp[1] = 0.0;
+        
+        // Formation enthalpy: (JANAF values [KJ/Kmol])
+        Enthalpy_Formation[0] = 0.0;					//N2
+        Enthalpy_Formation[1] = 472.683E3;		//N
+        
+        // Reference temperature (JANAF values, [K])
+        Ref_Temperature[0] = 0.0;
+        Ref_Temperature[1] = 0.0;
+//        Ref_Temperature[1] = 298.15;
+        
+        // Number of electron states
+        nElStates[0] = 15;                    // N2
+        nElStates[1] = 3;                     // N
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+          maxEl = max(maxEl, nElStates[iSpecies]);
+        
+        /*--- Allocate electron data arrays ---*/
+        CharElTemp = new double*[nSpecies];
+        degen      = new double*[nSpecies];
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+          CharElTemp[iSpecies] = new double[maxEl];
+          degen[iSpecies]      = new double[maxEl];
+        }
+        
+        /*--- Initialize the arrays ---*/
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+          for (iEl = 0; iEl < maxEl; iEl++) {
+            CharElTemp[iSpecies][iEl] = 0.0;
+            degen[iSpecies][iEl] = 0.0;
+          }
+        }
+        
+        /*--- Assign values to data structures ---*/
+        // N2: 15 states
+        CharElTemp[0][0]  = 0.000000000000000E+00;
+        CharElTemp[0][1]  = 7.223156514095200E+04;
+        CharElTemp[0][2]  = 8.577862640384000E+04;
+        CharElTemp[0][3]  = 8.605026716160000E+04;
+        CharElTemp[0][4]  = 9.535118627874400E+04;
+        CharElTemp[0][5]  = 9.805635702203200E+04;
+        CharElTemp[0][6]  = 9.968267656935200E+04;
+        CharElTemp[0][7]  = 1.048976467715200E+05;
+        CharElTemp[0][8]  = 1.116489555200000E+05;
+        CharElTemp[0][9]  = 1.225836470400000E+05;
+        CharElTemp[0][10] = 1.248856873600000E+05;
+        CharElTemp[0][11] = 1.282476158188320E+05;
+        CharElTemp[0][12] = 1.338060936000000E+05;
+        CharElTemp[0][13] = 1.404296391107200E+05;
+        CharElTemp[0][14] = 1.504958859200000E+05;
+        degen[0][0]  = 1;
+        degen[0][1]  = 3;
+        degen[0][2]  = 6;
+        degen[0][3]  = 6;
+        degen[0][4]  = 3;
+        degen[0][5]  = 1;
+        degen[0][6]  = 2;
+        degen[0][7]  = 2;
+        degen[0][8]  = 5;
+        degen[0][9]  = 1;
+        degen[0][10] = 6;
+        degen[0][11] = 6;
+        degen[0][12] = 10;
+        degen[0][13] = 6;
+        degen[0][14] = 6;
+        // N: 3 states
+        CharElTemp[1][0] = 0.000000000000000E+00;
+        CharElTemp[1][1] = 2.766469645581980E+04;
+        CharElTemp[1][2] = 4.149309313560210E+04; 
+        degen[1][0] = 4;
+        degen[1][1] = 10;
+        degen[1][2] = 6;
+        
+        /*--- Set Arrhenius coefficients for chemical reactions ---*/
+        // Pre-exponential factor
+        ArrheniusCoefficient[0]  = 7.0E21;
+        ArrheniusCoefficient[1]  = 3.0E22;
+        // Rate-controlling temperature exponent
+        ArrheniusEta[0]  = -1.60;
+        ArrheniusEta[1]  = -1.60;
+        // Characteristic temperature
+        ArrheniusTheta[0] = 113200.0;
+        ArrheniusTheta[1] = 113200.0;
+        
+        /*--- Set reaction maps ---*/
+        // N2 + N2 -> 2N + N2
+        Reactions[0][0][0]=0;		Reactions[0][0][1]=0;		Reactions[0][0][2]=nSpecies;
+        Reactions[0][1][0]=1;		Reactions[0][1][1]=1;		Reactions[0][1][2] =0;
+        // N2 + N -> 2N + N
+        Reactions[1][0][0]=0;		Reactions[1][0][1]=1;		Reactions[1][0][2]=nSpecies;
+        Reactions[1][1][0]=1;		Reactions[1][1][1]=1;		Reactions[1][1][2] =1;
+        
+        /*--- Set rate-controlling temperature exponents ---*/
+        //  -----------  Tc = Ttr^a * Tve^b  -----------
+        //
+        // Forward Reactions
+        //   Dissociation:      a = 0.5, b = 0.5  (OR a = 0.7, b =0.3)
+        //   Exchange:          a = 1,   b = 0
+        //   Impact ionization: a = 0,   b = 1
+        //
+        // Backward Reactions
+        //   Recomb ionization:      a = 0, b = 1
+        //   Impact ionization:      a = 0, b = 1
+        //   N2 impact dissociation: a = 0, b = 1
+        //   Others:                 a = 1, b = 0
+        Tcf_a[0] = 0.5; Tcf_b[0] = 0.5; Tcb_a[0] = 1;  Tcb_b[0] = 0;
+        Tcf_a[1] = 0.5; Tcf_b[1] = 0.5; Tcb_a[1] = 1;  Tcb_b[1] = 0;
+        
+        /*--- Dissociation potential [KJ/kg] ---*/
+        Diss[0] = 3.36E4;
+        Diss[1] = 0.0;
+        
+        break;
+        
+      case AIR5:
+        /*--- Define parameters of the gas model ---*/
+        nMonatomics = 2;
+        nDiatomics  = 3;
+        nSpecies    = nMonatomics + nDiatomics;
+        nReactions  = 17;
+        ionization  = false;
+        
+        /*--- Allocate vectors for gas properties ---*/
+        Molar_Mass           = new double[nSpecies];
+        CharVibTemp          = new double[nSpecies];
+        RotationModes        = new double[nSpecies];
+        Enthalpy_Formation   = new double[nSpecies];
+        Ref_Temperature      = new double[nSpecies];
+        ArrheniusCoefficient = new double[nReactions];
+        ArrheniusEta         = new double[nReactions];
+        ArrheniusTheta       = new double[nReactions];
+        Tcf_a                = new double[nReactions];
+        Tcf_b                = new double[nReactions];
+        Tcb_a                = new double[nReactions];
+        Tcb_b                = new double[nReactions];
+        nElStates            = new unsigned short[nSpecies];
+        Reactions            = new int**[nReactions];
+        for (unsigned short iRxn = 0; iRxn < nReactions; iRxn++) {
+          Reactions[iRxn] = new int*[2];
+          for (unsigned short ii = 0; ii < 2; ii++)
+            Reactions[iRxn][ii] = new int[6];
+        }
+        
+        MassFrac_FreeStream = new double[nSpecies];
+        MassFrac_FreeStream[0] = 0.78;
+        MassFrac_FreeStream[1] = 0.19;
+        MassFrac_FreeStream[2] = 0.01;
+        MassFrac_FreeStream[3] = 0.01;
+        MassFrac_FreeStream[4] = 0.01;
+        
+        /*--- Assign gas properties ---*/
+        // Rotational modes of energy storage
+        RotationModes[0] = 2.0;
+        RotationModes[1] = 2.0;
+        RotationModes[2] = 2.0;
+        RotationModes[3] = 0.0;
+        RotationModes[4] = 0.0;
+        
+        // Molar mass [kg/kmol]
+        Molar_Mass[0] = 2.0*14.0067;
+        Molar_Mass[1] = 2.0*15.9994;
+        Molar_Mass[2] = 14.0067+15.9994;
+        Molar_Mass[3] = 14.0067;
+        Molar_Mass[4] = 15.9994;
+        
+        //Characteristic vibrational temperatures
+        CharVibTemp[0] = 3395.0;
+        CharVibTemp[1] = 2239.0;
+        CharVibTemp[2] = 2817.0;
+        CharVibTemp[3] = 0.0;
+        CharVibTemp[4] = 0.0;
+        
+        // Formation enthalpy: (JANAF values [KJ/Kmol])
+        Enthalpy_Formation[0] = 0.0;					//N2
+        Enthalpy_Formation[1] = 0.0;					//O2
+        Enthalpy_Formation[2] = 90.291E3;			//NO
+        Enthalpy_Formation[3] = 472.683E3;		//N
+        Enthalpy_Formation[4] = 249.173E3;		//O
+        
+        // Reference temperature (JANAF values, [K])
+        Ref_Temperature[0] = 0.0;
+        Ref_Temperature[1] = 0.0;
+        Ref_Temperature[2] = 298.15;
+        Ref_Temperature[3] = 298.15;
+        Ref_Temperature[4] = 298.15;
+        
+        // Number of electron states
+        nElStates[0] = 15;                    // N2
+        nElStates[1] = 7;                     // O2
+        nElStates[2] = 16;                    // NO
+        nElStates[3] = 3;                     // N
+        nElStates[4] = 5;                     // O
+/////
+
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+          maxEl = max(maxEl, nElStates[iSpecies]);
+        
+        /*--- Allocate electron data arrays ---*/
+        CharElTemp = new double*[nSpecies];
+        degen      = new double*[nSpecies];
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+          CharElTemp[iSpecies] = new double[maxEl];
+          degen[iSpecies]      = new double[maxEl];
+        }
+        
+        /*--- Initialize the arrays ---*/
+        for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+          for (iEl = 0; iEl < maxEl; iEl++) {
+            CharElTemp[iSpecies][iEl] = 0.0;
+            degen[iSpecies][iEl] = 0.0;
+          }
+        }
+
+        //N2: 15 states
+        CharElTemp[0][0]  = 0.000000000000000E+00;
+        CharElTemp[0][1]  = 7.223156514095200E+04;
+        CharElTemp[0][2]  = 8.577862640384000E+04;
+        CharElTemp[0][3]  = 8.605026716160000E+04;
+        CharElTemp[0][4]  = 9.535118627874400E+04;
+        CharElTemp[0][5]  = 9.805635702203200E+04;
+        CharElTemp[0][6]  = 9.968267656935200E+04;
+        CharElTemp[0][7]  = 1.048976467715200E+05;
+        CharElTemp[0][8]  = 1.116489555200000E+05;
+        CharElTemp[0][9]  = 1.225836470400000E+05;
+        CharElTemp[0][10] = 1.248856873600000E+05;
+        CharElTemp[0][11] = 1.282476158188320E+05;
+        CharElTemp[0][12] = 1.338060936000000E+05;
+        CharElTemp[0][13] = 1.404296391107200E+05;
+        CharElTemp[0][14] = 1.504958859200000E+05;
+        degen[0][0]  = 1;
+        degen[0][1]  = 3;
+        degen[0][2]  = 6;
+        degen[0][3]  = 6;
+        degen[0][4]  = 3;
+        degen[0][5]  = 1;
+        degen[0][6]  = 2;
+        degen[0][7]  = 2;
+        degen[0][8]  = 5;
+        degen[0][9]  = 1;
+        degen[0][10] = 6;
+        degen[0][11] = 6;
+        degen[0][12] = 10;
+        degen[0][13] = 6;
+        degen[0][14] = 6;
+
+        // O2: 7 states
+        CharElTemp[1][0] = 0.000000000000000E+00;
+        CharElTemp[1][1] = 1.139156019700800E+04;
+        CharElTemp[1][2] = 1.898473947826400E+04;
+        CharElTemp[1][3] = 4.755973576639200E+04;
+        CharElTemp[1][4] = 4.991242097343200E+04;
+        CharElTemp[1][5] = 5.092268575561600E+04;
+        CharElTemp[1][6] = 7.189863255967200E+04;
+        degen[1][0] = 3;
+        degen[1][1] = 2;
+        degen[1][2] = 1;
+        degen[1][3] = 1;
+        degen[1][4] = 6;
+        degen[1][5] = 3;
+        degen[1][6] = 3;
+        
+        // NO: 16 states
+        CharElTemp[2][0]  = 0.000000000000000E+00;
+        CharElTemp[2][1]  = 5.467345760000000E+04;
+        CharElTemp[2][2]  = 6.317139627802400E+04;
+        CharElTemp[2][3]  = 6.599450342445600E+04;
+        CharElTemp[2][4]  = 6.906120960000000E+04;
+        CharElTemp[2][5]  = 7.049998480000000E+04;
+        CharElTemp[2][6]  = 7.491055017560000E+04;
+        CharElTemp[2][7]  = 7.628875293968000E+04;
+        CharElTemp[2][8]  = 8.676188537552000E+04;
+        CharElTemp[2][9]  = 8.714431182368000E+04;
+        CharElTemp[2][10] = 8.886077063728000E+04;
+        CharElTemp[2][11] = 8.981755614528000E+04;
+        CharElTemp[2][12] = 8.988445919208000E+04;
+        CharElTemp[2][13] = 9.042702132000000E+04;
+        CharElTemp[2][14] = 9.064283760000000E+04;
+        CharElTemp[2][15] = 9.111763341600000E+04;
+        degen[2][0]  = 4;
+        degen[2][1]  = 8;
+        degen[2][2]  = 2;
+        degen[2][3]  = 4;
+        degen[2][4]  = 4;
+        degen[2][5]  = 4;
+        degen[2][6]  = 4;
+        degen[2][7]  = 2;
+        degen[2][8]  = 4;
+        degen[2][9]  = 2;
+        degen[2][10] = 4;
+        degen[2][11] = 4;
+        degen[2][12] = 2;
+        degen[2][13] = 2;
+        degen[2][14] = 2;
+        degen[2][15] = 4;
+        
+        // N: 3 states
+        CharElTemp[3][0] = 0.000000000000000E+00;
+        CharElTemp[3][1] = 2.766469645581980E+04;
+        CharElTemp[3][2] = 4.149309313560210E+04;
+        degen[3][0] = 4;
+        degen[3][1] = 10;
+        degen[3][2] = 6;
+        
+        // O: 5 states
+        CharElTemp[4][0] = 0.000000000000000E+00;
+        CharElTemp[4][1] = 2.277077570280000E+02;
+        CharElTemp[4][2] = 3.265688785704000E+02;
+        CharElTemp[4][3] = 2.283028632262240E+04;
+        CharElTemp[4][4] = 4.861993036434160E+04;
+        degen[4][0] = 5;
+        degen[4][1] = 3;
+        degen[4][2] = 1;
+        degen[4][3] = 5;
+        degen[4][4] = 1;
+                
+        /*--- Set reaction maps ---*/
+        // N2 dissociation
+        Reactions[0][0][0]=0;		Reactions[0][0][1]=0;		Reactions[0][0][2]=nSpecies;		Reactions[0][1][0]=3;		Reactions[0][1][1]=3;		Reactions[0][1][2] =0;
+        Reactions[1][0][0]=0;		Reactions[1][0][1]=1;		Reactions[1][0][2]=nSpecies;		Reactions[1][1][0]=3;		Reactions[1][1][1]=3;		Reactions[1][1][2] =1;
+        Reactions[2][0][0]=0;		Reactions[2][0][1]=2;		Reactions[2][0][2]=nSpecies;		Reactions[2][1][0]=3;		Reactions[2][1][1]=3;		Reactions[2][1][2] =2;
+        Reactions[3][0][0]=0;		Reactions[3][0][1]=3;		Reactions[3][0][2]=nSpecies;		Reactions[3][1][0]=3;		Reactions[3][1][1]=3;		Reactions[3][1][2] =3;
+        Reactions[4][0][0]=0;		Reactions[4][0][1]=4;		Reactions[4][0][2]=nSpecies;		Reactions[4][1][0]=3;		Reactions[4][1][1]=3;		Reactions[4][1][2] =4;
+        // O2 dissociation
+        Reactions[5][0][0]=1;		Reactions[5][0][1]=0;		Reactions[5][0][2]=nSpecies;		Reactions[5][1][0]=4;		Reactions[5][1][1]=4;		Reactions[5][1][2] =0;
+        Reactions[6][0][0]=1;		Reactions[6][0][1]=1;		Reactions[6][0][2]=nSpecies;		Reactions[6][1][0]=4;		Reactions[6][1][1]=4;		Reactions[6][1][2] =1;
+        Reactions[7][0][0]=1;		Reactions[7][0][1]=2;		Reactions[7][0][2]=nSpecies;		Reactions[7][1][0]=4;		Reactions[7][1][1]=4;		Reactions[7][1][2] =2;
+        Reactions[8][0][0]=1;		Reactions[8][0][1]=3;		Reactions[8][0][2]=nSpecies;		Reactions[8][1][0]=4;		Reactions[8][1][1]=4;		Reactions[8][1][2] =3;
+        Reactions[9][0][0]=1;		Reactions[9][0][1]=4;		Reactions[9][0][2]=nSpecies;		Reactions[9][1][0]=4;		Reactions[9][1][1]=4;		Reactions[9][1][2] =4;
+        // NO dissociation
+        Reactions[10][0][0]=2;		Reactions[10][0][1]=0;		Reactions[10][0][2]=nSpecies;		Reactions[10][1][0]=3;		Reactions[10][1][1]=4;		Reactions[10][1][2] =0;
+        Reactions[11][0][0]=2;		Reactions[11][0][1]=1;		Reactions[11][0][2]=nSpecies;		Reactions[11][1][0]=3;		Reactions[11][1][1]=4;		Reactions[11][1][2] =1;
+        Reactions[12][0][0]=2;		Reactions[12][0][1]=2;		Reactions[12][0][2]=nSpecies;		Reactions[12][1][0]=3;		Reactions[12][1][1]=4;		Reactions[12][1][2] =2;
+        Reactions[13][0][0]=2;		Reactions[13][0][1]=3;		Reactions[13][0][2]=nSpecies;		Reactions[13][1][0]=3;		Reactions[13][1][1]=4;		Reactions[13][1][2] =3;
+        Reactions[14][0][0]=2;		Reactions[14][0][1]=4;		Reactions[14][0][2]=nSpecies;		Reactions[14][1][0]=3;		Reactions[14][1][1]=4;		Reactions[14][1][2] =4;
+        // N2 + O -> NO + N
+        Reactions[15][0][0]=0;		Reactions[15][0][1]=4;		Reactions[15][0][2]=nSpecies;		Reactions[15][1][0]=2;		Reactions[15][1][1]=3;		Reactions[15][1][2]= nSpecies;
+        // NO + O -> O2 + N
+        Reactions[16][0][0]=2;		Reactions[16][0][1]=4;		Reactions[16][0][2]=nSpecies;		Reactions[16][1][0]=1;		Reactions[16][1][1]=3;		Reactions[16][1][2]= nSpecies;
+        
+        /*--- Set Arrhenius coefficients for reactions ---*/
+        // Pre-exponential factor
+        ArrheniusCoefficient[0]  = 7.0E21;
+        ArrheniusCoefficient[1]  = 7.0E21;
+        ArrheniusCoefficient[2]  = 7.0E21;
+        ArrheniusCoefficient[3]  = 3.0E22;
+        ArrheniusCoefficient[4]  = 3.0E22;
+        ArrheniusCoefficient[5]  = 2.0E21;
+        ArrheniusCoefficient[6]  = 2.0E21;
+        ArrheniusCoefficient[7]  = 2.0E21;
+        ArrheniusCoefficient[8]  = 1.0E22;
+        ArrheniusCoefficient[9]  = 1.0E22;
+        ArrheniusCoefficient[10] = 5.0E15;
+        ArrheniusCoefficient[11] = 5.0E15;
+        ArrheniusCoefficient[12] = 5.0E15;
+        ArrheniusCoefficient[13] = 1.1E17;
+        ArrheniusCoefficient[14] = 1.1E17;
+        ArrheniusCoefficient[15] = 6.4E17;
+        ArrheniusCoefficient[16] = 8.4E12;
+        
+        // Rate-controlling temperature exponent
+        ArrheniusEta[0]  = -1.60;
+        ArrheniusEta[1]  = -1.60;
+        ArrheniusEta[2]  = -1.60;
+        ArrheniusEta[3]  = -1.60;
+        ArrheniusEta[4]  = -1.60;
+        ArrheniusEta[5]  = -1.50;
+        ArrheniusEta[6]  = -1.50;
+        ArrheniusEta[7]  = -1.50;
+        ArrheniusEta[8]  = -1.50;
+        ArrheniusEta[9]  = -1.50;
+        ArrheniusEta[10] = 0.0;
+        ArrheniusEta[11] = 0.0;
+        ArrheniusEta[12] = 0.0;
+        ArrheniusEta[13] = 0.0;
+        ArrheniusEta[14] = 0.0;
+        ArrheniusEta[15] = -1.0;
+        ArrheniusEta[16] = 0.0;
+        
+        // Characteristic temperature
+        ArrheniusTheta[0]  = 113200.0;
+        ArrheniusTheta[1]  = 113200.0;
+        ArrheniusTheta[2]  = 113200.0;
+        ArrheniusTheta[3]  = 113200.0;
+        ArrheniusTheta[4]  = 113200.0;
+        ArrheniusTheta[5]  = 59500.0;
+        ArrheniusTheta[6]  = 59500.0;
+        ArrheniusTheta[7]  = 59500.0;
+        ArrheniusTheta[8]  = 59500.0;
+        ArrheniusTheta[9]  = 59500.0;
+        ArrheniusTheta[10] = 75500.0;
+        ArrheniusTheta[11] = 75500.0;
+        ArrheniusTheta[12] = 75500.0;
+        ArrheniusTheta[13] = 75500.0;
+        ArrheniusTheta[14] = 75500.0;
+        ArrheniusTheta[15] = 38400.0;
+        ArrheniusTheta[16] = 19450.0;
+        
+        /*--- Set rate-controlling temperature exponents ---*/
+        //  -----------  Tc = Ttr^a * Tve^b  -----------
+        //
+        // Forward Reactions
+        //   Dissociation:      a = 0.5, b = 0.5  (OR a = 0.7, b =0.3)
+        //   Exchange:          a = 1,   b = 0
+        //   Impact ionization: a = 0,   b = 1
+        //
+        // Backward Reactions
+        //   Recomb ionization:      a = 0, b = 1
+        //   Impact ionization:      a = 0, b = 1
+        //   N2 impact dissociation: a = 0, b = 1
+        //   Others:                 a = 1, b = 0
+        Tcf_a[0]  = 0.5; Tcf_b[0]  = 0.5; Tcb_a[0]  = 1;  Tcb_b[0] = 0;
+        Tcf_a[1]  = 0.5; Tcf_b[1]  = 0.5; Tcb_a[1]  = 1;  Tcb_b[1] = 0;
+        Tcf_a[2]  = 0.5; Tcf_b[2]  = 0.5; Tcb_a[2]  = 1;  Tcb_b[2] = 0;
+        Tcf_a[3]  = 0.5; Tcf_b[3]  = 0.5; Tcb_a[3]  = 1;  Tcb_b[3] = 0;
+        Tcf_a[4]  = 0.5; Tcf_b[4]  = 0.5; Tcb_a[4]  = 1;  Tcb_b[4] = 0;
+        
+        Tcf_a[5]  = 0.5; Tcf_b[5]  = 0.5; Tcb_a[5]  = 1;  Tcb_b[5] = 0;
+        Tcf_a[6]  = 0.5; Tcf_b[6]  = 0.5; Tcb_a[6]  = 1;  Tcb_b[6] = 0;
+        Tcf_a[7]  = 0.5; Tcf_b[7]  = 0.5; Tcb_a[7]  = 1;  Tcb_b[7] = 0;
+        Tcf_a[8]  = 0.5; Tcf_b[8]  = 0.5; Tcb_a[8]  = 1;  Tcb_b[8] = 0;
+        Tcf_a[9]  = 0.5; Tcf_b[9]  = 0.5; Tcb_a[9]  = 1;  Tcb_b[9] = 0;
+        
+        Tcf_a[10] = 0.5; Tcf_b[10] = 0.5; Tcb_a[10] = 1;  Tcb_b[10] = 0;
+        Tcf_a[11] = 0.5; Tcf_b[11] = 0.5; Tcb_a[11] = 1;  Tcb_b[11] = 0;
+        Tcf_a[12] = 0.5; Tcf_b[12] = 0.5; Tcb_a[12] = 1;  Tcb_b[12] = 0;
+        Tcf_a[13] = 0.5; Tcf_b[13] = 0.5; Tcb_a[13] = 1;  Tcb_b[13] = 0;
+        Tcf_a[14] = 0.5; Tcf_b[14] = 0.5; Tcb_a[14] = 1;  Tcb_b[14] = 0;
+        
+        Tcf_a[15] = 1.0; Tcf_b[15] = 0.0; Tcb_a[15] = 1;  Tcb_b[15] = 0;
+        Tcf_a[16] = 1.0; Tcf_b[16] = 0.0; Tcb_a[16] = 1;  Tcb_b[16] = 0;
+        
+        break;
+    }
+  }
+  
 	if ((Kind_Solver == PLASMA_EULER) || (Kind_Solver == ADJ_PLASMA_EULER) ||
 			(Kind_Solver == PLASMA_NAVIER_STOKES) || (Kind_Solver == ADJ_PLASMA_NAVIER_STOKES)) {
 		unsigned short iSpecies, jSpecies, iReaction, ii;
@@ -2137,7 +2723,7 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 
 			/*-- Allocation ---*/
 			Species_Gas_Constant = new double[nSpecies];
-			Species_Gamma = new double[nSpecies];
+			Species_Gamma      = new double[nSpecies];
 			Molar_Mass         = new double[nSpecies];
 			Particle_Mass      = new double[nSpecies];
 			Molecular_Diameter = new double[nSpecies];
@@ -2198,9 +2784,15 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 			Gas_Composition[2] = 0.01;
 
 			/*--- Set reaction maps ---*/
-			Reactions[0][0][0]=0;		Reactions[0][0][1]=0;		Reactions[0][0][2]=nSpecies;		Reactions[0][1][0]=1;		Reactions[0][1][1]=2;		Reactions[0][1][2] =0;
-			Reactions[1][0][0]=0;		Reactions[1][0][1]=1;		Reactions[1][0][2]=nSpecies;		Reactions[1][1][0]=1;		Reactions[1][1][1]=2;		Reactions[1][1][2] =1;
-			Reactions[2][0][0]=0;		Reactions[2][0][1]=2;		Reactions[2][0][2]=nSpecies;		Reactions[2][1][0]=1;		Reactions[2][1][1]=2;		Reactions[2][1][2] =2;
+      //
+			Reactions[0][0][0]=0;		Reactions[0][0][1]=0;		Reactions[0][0][2]=nSpecies;
+      Reactions[0][1][0]=1;		Reactions[0][1][1]=2;		Reactions[0][1][2] =0;
+			//
+      Reactions[1][0][0]=0;		Reactions[1][0][1]=1;		Reactions[1][0][2]=nSpecies;
+      Reactions[1][1][0]=1;   Reactions[1][1][1]=2;		Reactions[1][1][2] =1;
+			//
+      Reactions[2][0][0]=0;		Reactions[2][0][1]=2;		Reactions[2][0][2]=nSpecies;
+      Reactions[2][1][0]=1;		Reactions[2][1][1]=2;		Reactions[2][1][2] =2;
 
 			/*--- Set Arrhenius coefficients for chemical reactions ---*/
 			// Pre-exponential factor
@@ -2331,7 +2923,6 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
 			Enthalpy_Formation[2] = 90.291E3;			//NO
 			Enthalpy_Formation[3] = 472.683E3;		//N
 			Enthalpy_Formation[4] = 249.173E3;		//O
-
 
 			/*--- Set initial fraction of number density (Ns / Ntotal) ---*/
 			Gas_Composition[0] = 0.788;	//N2
@@ -2871,7 +3462,7 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 	case SU2_SOL: cout << "|  |_____/   \\____/  |____|   Suite (Solution Exporting Code)           |" << endl; break;
 	}
 
-	cout << "|                             Release 2.0.7                             |" << endl;
+	cout << "|                             Release 2.0.8                             |" << endl;
   cout <<"-------------------------------------------------------------------------" << endl;
   cout << "| Stanford University Unstructured (SU2).                               |" << endl; 
   cout << "| Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).            |" << endl;
@@ -2916,6 +3507,12 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
           case SST: cout << "Menter's SST"     << endl; break;
         }
         break;
+      case TNE2_EULER:
+        cout << "Compressible TNE2 Euler equations." << endl;
+        break;
+      case TNE2_NAVIER_STOKES:
+        cout << "Compressible TNE2 Laminar Navier-Stokes' equations." << endl;
+        break;
 			case PLASMA_EULER:
 				cout << "Plasma equations (without viscosity)." << endl;
 				if (Kind_GasModel == ARGON) cout << "Using 3 species Argon gas model." << endl;
@@ -2952,9 +3549,10 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 				if (Kind_GasModel == N2) cout << "Using 2 species Nitrogen gas model." << endl;
 				if (Kind_GasModel == ARGON_SID) cout << "Using 2 species Sid gas model." << endl;
 				break;
-			case ELECTRIC_POTENTIAL: cout << "Electric potential equation." << endl; break;
+			case POISSON_EQUATION: cout << "Poisson equation." << endl; break;
 			case WAVE_EQUATION: cout << "Wave equation." << endl; break;
-			case LINEAR_ELASTICITY: cout << "Finite Element Analysis." << endl; break;
+			case HEAT_EQUATION: cout << "Heat equation." << endl; break;
+			case LINEAR_ELASTICITY: cout << "Linear elasticity solver." << endl; break;
 			case FLUID_STRUCTURE_EULER: case FLUID_STRUCTURE_NAVIER_STOKES: cout << "Fluid-structure interaction." << endl; break;
 			case ADJ_EULER: cout << "Continuous Euler adjoint equations." << endl; break;
 			case ADJ_NAVIER_STOKES:
@@ -2962,6 +3560,10 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 					cout << "Continuous Navier-Stokes adjoint equations with frozen (laminar) viscosity." << endl;
 				else
 					cout << "Continuous Navier-Stokes adjoint equations." << endl;
+				break;
+      case ADJ_TNE2_EULER: cout << "Continuous TNE2 Euler adjoint equations." << endl; break;
+			case ADJ_TNE2_NAVIER_STOKES:
+					cout << "Continuous TNE2 Navier-Stokes adjoint equations with frozen (laminar) viscosity." << endl;
 				break;
 			case ADJ_RANS:
         if (Frozen_Visc)
@@ -2974,7 +3576,8 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
         
 		}
 
-		if (Kind_Regime == COMPRESSIBLE) {
+		if ((Kind_Regime == COMPRESSIBLE) && (Kind_Solver != LINEAR_ELASTICITY) &&
+        (Kind_Solver != HEAT_EQUATION) && (Kind_Solver != WAVE_EQUATION)) {
 			cout << "Mach number: " << Mach <<"."<< endl;
 			cout << "Angle of attack (AoA): " << AoA <<" deg, and angle of sideslip (AoS): " << AoS <<" deg."<< endl;
 			if ((Kind_Solver == NAVIER_STOKES) || (Kind_Solver == ADJ_NAVIER_STOKES) ||
@@ -3292,6 +3895,40 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			}
 		}
 
+    if ((Kind_Solver == TNE2_EULER) || (Kind_Solver == TNE2_NAVIER_STOKES)) {
+      if (Kind_ConvNumScheme_TNE2 == SPACE_CENTERED) {
+        if (Kind_ConvNumScheme_TNE2 == LAX) cout << "Lax-Friedrich convective scheme for the inviscid terms of the two-temperature model." << endl;
+      }
+			if (Kind_ConvNumScheme_TNE2 == SPACE_UPWIND) {
+				if (Kind_Upwind_TNE2 == ROE_1ST) cout << "1st order Roe solver for the inviscid terms of the two-temperature model."<< endl;
+				if (Kind_Upwind_TNE2 == ROE_TURKEL_1ST) cout << "1st order Roe-Turkel solver for the inviscid terms of the two-temperature model."<< endl;
+				if (Kind_Upwind_TNE2 == AUSM_1ST)	cout << "1st order AUSM solver for the inviscid terms of the two-temperature model."<< endl;
+				if (Kind_Upwind_TNE2 == HLLC_1ST)	cout << "1st order HLLC solver for the inviscid terms of the two-temperature model."<< endl;
+				if (Kind_Upwind_TNE2 == SW_1ST)	cout << "1st order Steger-Warming solver for the inviscid terms of the two-temperature model."<< endl;
+				if (Kind_Upwind_TNE2 == MSW_1ST)	cout << "1st order Modified Steger-Warming solver for the inviscid terms of the two-temperature model."<< endl;
+			}
+			if ((Kind_ConvNumScheme_TNE2 == SPACE_UPWIND) &&
+					((Kind_Upwind_TNE2 == ROE_2ND) || (Kind_Upwind_Flow == AUSM_2ND) || (Kind_Upwind_Flow == HLLC_2ND)
+           || (Kind_Upwind_TNE2 == SW_2ND) || (Kind_Upwind_Flow == MSW_2ND) || (Kind_Upwind_Flow == ROE_TURKEL_2ND))) {
+            if (Kind_Upwind_TNE2 == ROE_2ND) cout << "2nd order Roe solver for the flow inviscid terms."<< endl;
+            if (Kind_Upwind_TNE2 == ROE_TURKEL_2ND) cout << "2nd order Roe-Turkel solver for the flow inviscid terms."<< endl;
+            if (Kind_Upwind_TNE2 == AUSM_2ND) cout << "2nd order AUSM solver for the flow inviscid terms."<< endl;
+            if (Kind_Upwind_TNE2 == HLLC_2ND) cout << "2nd order HLLC solver for the flow inviscid terms."<< endl;
+            if (Kind_Upwind_TNE2 == SW_2ND) cout << "2nd order Steger-Warming solver for the flow inviscid terms."<< endl;
+            if (Kind_Upwind_TNE2 == MSW_2ND) cout << "2nd order Modified Steger-Warming solver for the flow inviscid terms."<< endl;
+            switch (Kind_SlopeLimit_TNE2) {
+              case NONE: cout << "Without slope-limiting method." << endl; break;
+              case VENKATAKRISHNAN:
+                cout << "Venkatakrishnan slope-limiting method, with constant: " << LimiterCoeff <<". "<< endl;
+                cout << "The reference element size is: " << RefElemLength <<". "<< endl;
+                break;
+              case MINMOD:
+                cout << "Minmod slope-limiting method." << endl;
+                break;
+            }
+          }
+		}
+    
 		if ((Kind_Solver == PLASMA_EULER) || (Kind_Solver == PLASMA_NAVIER_STOKES)) {
 			if (Kind_ConvNumScheme_Plasma == SPACE_CENTERED) {
 				if (Kind_Centered_Plasma == JST)
@@ -3384,6 +4021,43 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			case AVG_GRAD_CORRECTED: cout << "Average of gradients with correction (viscous flow terms)." << endl; break;
 			}
 		}
+    
+    if (Kind_Solver == ADJ_TNE2_EULER || Kind_Solver == ADJ_TNE2_NAVIER_STOKES) {
+      if ((Kind_ConvNumScheme_AdjTNE2 == SPACE_CENTERED) && (Kind_Centered_AdjTNE2 == JST)) {
+				cout << "Jameson-Schmidt-Turkel scheme for the adjoint inviscid terms."<< endl;
+				cout << "JST viscous coefficients (1st, 2nd, & 4th): " << Kappa_1st_AdjTNE2
+        << ", " << Kappa_2nd_AdjTNE2 << ", " << Kappa_4th_AdjTNE2 <<"."<< endl;
+				cout << "The method includes a grid stretching correction (p = 0.3)."<< endl;
+        cout << "The reference sharp edge distance is: " << SharpEdgesCoeff*RefElemLength*LimiterCoeff <<". "<< endl;
+			}
+			if ((Kind_ConvNumScheme_AdjTNE2 == SPACE_CENTERED) && (Kind_Centered_AdjTNE2 == LAX))
+				cout << "Lax-Friedrich scheme for the adjoint inviscid terms."<< endl;
+			if ((Kind_ConvNumScheme_AdjTNE2 == SPACE_UPWIND) && (Kind_Upwind_AdjTNE2 == ROE_1ST))
+				cout << "1st order Roe solver for the adjoint inviscid terms."<< endl;
+			if ((Kind_ConvNumScheme_AdjTNE2 == SPACE_UPWIND) && (Kind_Upwind_AdjTNE2 == ROE_2ND)) {
+				cout << "2nd order Roe solver for the adjoint inviscid terms."<< endl;
+				switch (Kind_SlopeLimit_AdjTNE2) {
+          case NONE: cout << "Without slope-limiting method." << endl; break;
+          case VENKATAKRISHNAN:
+            cout << "Venkatakrishnan slope-limiting method, with constant: " << LimiterCoeff <<". "<< endl;
+            cout << "The reference element size is: " << RefElemLength <<". "<< endl;
+            break;
+          case SHARP_EDGES:
+            cout << "Sharp edges slope-limiting method, with constant: " << LimiterCoeff <<". "<< endl;
+            cout << "The reference element size is: " << RefElemLength <<". "<< endl;
+            cout << "The reference sharp edge distance is: " << SharpEdgesCoeff*RefElemLength*LimiterCoeff <<". "<< endl;
+            break;
+				}
+			}
+    }
+    
+    if (Kind_Solver == TNE2_NAVIER_STOKES) {
+			switch (Kind_ViscNumScheme_TNE2) {
+        case AVG_GRAD: cout << "Average of gradients (viscous flow terms)." << endl; break;
+        case AVG_GRAD_CORRECTED: cout << "Average of gradients with correction (viscous flow terms)." << endl; break;
+			}
+		}
+    
 		if (Kind_Solver == PLASMA_NAVIER_STOKES) {
 			switch (Kind_ViscNumScheme_Plasma) {
 			case AVG_GRAD: cout << "Average of gradients (1st order) for computation of viscous flow terms." << endl; break;
@@ -3436,8 +4110,8 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			if (Kind_SourNumScheme_Turb == PIECEWISE_CONSTANT) cout << "Piecewise constant integration of the turbulence model source terms." << endl;
 		}
 
-		if ((Kind_Solver == ELECTRIC_POTENTIAL) || (Kind_Solver == PLASMA_NAVIER_STOKES)) {
-			if (Kind_ViscNumScheme_Elec == GALERKIN) cout << "Galerkin method for viscous terms computation of the electric potential equation." << endl;
+		if ((Kind_Solver == POISSON_EQUATION) || (Kind_Solver == PLASMA_NAVIER_STOKES)) {
+			if (Kind_ViscNumScheme_Poisson == GALERKIN) cout << "Galerkin method for viscous terms computation of the poisson potential equation." << endl;
 		}
 
 		if ((Kind_Solver == ADJ_RANS) && (!Frozen_Visc)) {
@@ -3451,8 +4125,12 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			if (Kind_SourNumScheme_AdjFlow == PIECEWISE_CONSTANT) cout << "Piecewise constant integration of the Navier-Stokes eq. source terms." << endl;
 		}
 
-		if (Kind_Solver == ELECTRIC_POTENTIAL) {
-			if (Kind_SourNumScheme_Elec == PIECEWISE_CONSTANT) cout << "Piecewise constant integration of the electric potential source terms." << endl;
+		if (Kind_Solver == POISSON_EQUATION) {
+			if (Kind_SourNumScheme_Poisson == PIECEWISE_CONSTANT) cout << "Piecewise constant integration of the poisson potential source terms." << endl;
+		}
+    
+    if (Kind_Solver == HEAT_EQUATION) {
+			if (Kind_SourNumScheme_Heat == PIECEWISE_CONSTANT) cout << "Piecewise constant integration of the heat equation source terms." << endl;
 		}
 
 		switch (Kind_Gradient_Method) {
@@ -3513,6 +4191,31 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 				break;
 			}
 		}
+    
+    if ((Kind_Solver == TNE2_EULER) || (Kind_Solver == TNE2_NAVIER_STOKES)) {
+			switch (Kind_TimeIntScheme_TNE2) {
+        case EULER_IMPLICIT:
+          cout << "Euler implicit method for the flow equations." << endl;
+          switch (Kind_Linear_Solver) {
+            case LU_SGS:
+              cout << "A LU - symmetric Gauss-Seidel iteration is used for solving the linear system." << endl;
+              break;
+            case BCGSTAB:
+              cout << "BCGSTAB is used for solving the linear system." << endl;
+              cout << "Convergence criteria of the linear solver: "<< Linear_Solver_Error <<"."<<endl;
+              cout << "Max number of iterations: "<< Linear_Solver_Iter <<"."<<endl;
+              cout << "Relaxation coefficient: "<< Linear_Solver_Relax <<"."<<endl;
+              break;
+            case FGMRES:
+              cout << "FGMRES is used for solving the linear system." << endl;
+              cout << "Convergence criteria of the linear solver: "<< Linear_Solver_Error <<"."<<endl;
+              cout << "Max number of iterations: "<< Linear_Solver_Iter <<"."<<endl;
+              cout << "Relaxation coefficient: "<< Linear_Solver_Relax <<"."<<endl;
+              break;
+          }
+          break;
+			}
+		}
 
 		if ((Kind_Solver == PLASMA_EULER) || (Kind_Solver == PLASMA_NAVIER_STOKES)) {
 			switch (Kind_TimeIntScheme_Plasma) {
@@ -3560,6 +4263,22 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			case EULER_EXPLICIT: cout << "Euler explicit method for the linearized equations." << endl; break;
 			}
 		}
+    
+    if ((Kind_Solver == ADJ_TNE2_EULER) || (Kind_Solver == ADJ_TNE2_NAVIER_STOKES)) {
+			switch (Kind_TimeIntScheme_AdjTNE2) {
+        case RUNGE_KUTTA_EXPLICIT:
+          cout << "Runge-Kutta explicit method for the adjoint equations." << endl;
+          cout << "Number of steps: " << nRKStep << endl;
+          cout << "Alpha coefficients: ";
+          for (unsigned short iRKStep = 0; iRKStep < nRKStep; iRKStep++) {
+            cout << "\t" << RK_Alpha_Step[iRKStep];
+          }
+          cout << endl;
+          break;
+        case EULER_EXPLICIT: cout << "Euler explicit method for the adjoint equations." << endl; break;
+        case EULER_IMPLICIT: cout << "Euler implicit method for the adjoint equations." << endl; break;
+			}
+		}
 
 		if (FullMG) {
 			cout << "Full Multigrid." << endl;
@@ -3576,50 +4295,55 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 			cout << "Damping factor for the residual restriction: " << Damp_Res_Restric <<"."<<endl;
 			cout << "Damping factor for the correction prolongation: " << Damp_Correc_Prolong <<"."<<endl;
 		}
-		if (CFLRamp[0] == 1.0) cout << "No CFL ramp." << endl;
-		else cout << "CFL ramp definition. factor: "<< CFLRamp[0] <<", every "<< int(CFLRamp[1]) <<" iterations, with a limit of "<< CFLRamp[2] <<"." << endl;
-
-		if (nMultiLevel !=0) {
-			cout << "Multigrid Level:                  ";
-			for (unsigned short iLevel = 0; iLevel < nMultiLevel+1; iLevel++) {
-				cout.width(6); cout << iLevel;
-			}
-			cout << endl;
-		}
-
-		cout << "Courant-Friedrichs-Lewy number:   ";
-		cout.precision(3);
-		for (unsigned short iCFL = 0; iCFL < nMultiLevel+1; iCFL++) {
-			cout.width(6); cout << CFL[iCFL];
-		}
-		cout << endl;
-
-		if (nMultiLevel !=0) {
-			cout.precision(3);
-			cout << "MG PreSmooth coefficients:        ";
-			for (unsigned short iMG_PreSmooth = 0; iMG_PreSmooth < nMultiLevel+1; iMG_PreSmooth++) {
-				cout.width(6); cout << MG_PreSmooth[iMG_PreSmooth];
-			}
-			cout << endl;
-		}
-
-		if (nMultiLevel !=0) {
-			cout.precision(3);
-			cout << "MG PostSmooth coefficients:       ";
-			for (unsigned short iMG_PostSmooth = 0; iMG_PostSmooth < nMultiLevel+1; iMG_PostSmooth++) {
-				cout.width(6); cout << MG_PostSmooth[iMG_PostSmooth];
-			}
-			cout << endl;
-		}
-
-		if (nMultiLevel !=0) {
-			cout.precision(3);
-			cout << "MG CorrecSmooth coefficients:     ";
-			for (unsigned short iMG_CorrecSmooth = 0; iMG_CorrecSmooth < nMultiLevel+1; iMG_CorrecSmooth++) {
-				cout.width(6); cout << MG_CorrecSmooth[iMG_CorrecSmooth];
-			}
-			cout << endl;
-		}
+    
+    if ((Kind_Solver != LINEAR_ELASTICITY) && (Kind_Solver != HEAT_EQUATION) && (Kind_Solver != WAVE_EQUATION)) {
+      
+      if (CFLRamp[0] == 1.0) cout << "No CFL ramp." << endl;
+      else cout << "CFL ramp definition. factor: "<< CFLRamp[0] <<", every "<< int(CFLRamp[1]) <<" iterations, with a limit of "<< CFLRamp[2] <<"." << endl;
+      
+      if (nMultiLevel !=0) {
+        cout << "Multigrid Level:                  ";
+        for (unsigned short iLevel = 0; iLevel < nMultiLevel+1; iLevel++) {
+          cout.width(6); cout << iLevel;
+        }
+        cout << endl;
+      }
+      
+      cout << "Courant-Friedrichs-Lewy number:   ";
+      cout.precision(3);
+      for (unsigned short iCFL = 0; iCFL < nMultiLevel+1; iCFL++) {
+        cout.width(6); cout << CFL[iCFL];
+      }
+      cout << endl;
+      
+      if (nMultiLevel !=0) {
+        cout.precision(3);
+        cout << "MG PreSmooth coefficients:        ";
+        for (unsigned short iMG_PreSmooth = 0; iMG_PreSmooth < nMultiLevel+1; iMG_PreSmooth++) {
+          cout.width(6); cout << MG_PreSmooth[iMG_PreSmooth];
+        }
+        cout << endl;
+      }
+      
+      if (nMultiLevel !=0) {
+        cout.precision(3);
+        cout << "MG PostSmooth coefficients:       ";
+        for (unsigned short iMG_PostSmooth = 0; iMG_PostSmooth < nMultiLevel+1; iMG_PostSmooth++) {
+          cout.width(6); cout << MG_PostSmooth[iMG_PostSmooth];
+        }
+        cout << endl;
+      }
+      
+      if (nMultiLevel !=0) {
+        cout.precision(3);
+        cout << "MG CorrecSmooth coefficients:     ";
+        for (unsigned short iMG_CorrecSmooth = 0; iMG_CorrecSmooth < nMultiLevel+1; iMG_CorrecSmooth++) {
+          cout.width(6); cout << MG_CorrecSmooth[iMG_CorrecSmooth];
+        }
+        cout << endl;
+      }
+      
+    }
 
 		if (Kind_Solver == RANS)
 			if (Kind_TimeIntScheme_Turb == EULER_IMPLICIT)
@@ -3742,25 +4466,33 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 
 		cout << "Convergence history file name: " << Conv_FileName << "." << endl;
 
-		if (!Linearized && !Adjoint) {
-			cout << "Surface flow coefficients file name: " << SurfFlowCoeff_FileName << "." << endl;
-			cout << "Flow variables file name: " << Flow_FileName << "." << endl;
-			cout << "Restart flow file name: " << Restart_FlowFileName << "." << endl;
-		}
-
-		if (Linearized) {
-			cout << "Linearized flow solution file name: " << Solution_LinFileName << "." << endl;
-			cout << "Restart linearized flow file name: " << Restart_LinFileName << "." << endl;
-			cout << "Linearized variables file name: " << Lin_FileName << "." << endl;
-			cout << "Surface linearized coefficients file name: " << SurfLinCoeff_FileName << "." << endl;
-		}
-
-		if (Adjoint || OneShot) {
-			cout << "Adjoint solution file name: " << Solution_AdjFileName << "." << endl;
-			cout << "Restart adjoint file name: " << Restart_AdjFileName << "." << endl;
-			cout << "Adjoint variables file name: " << Adj_FileName << "." << endl;
-			cout << "Surface adjoint coefficients file name: " << SurfAdjCoeff_FileName << "." << endl;
-		}
+    if ((Kind_Solver != LINEAR_ELASTICITY) && (Kind_Solver != HEAT_EQUATION) && (Kind_Solver != WAVE_EQUATION)) {
+      if (!Linearized && !Adjoint) {
+        cout << "Surface flow coefficients file name: " << SurfFlowCoeff_FileName << "." << endl;
+        cout << "Flow variables file name: " << Flow_FileName << "." << endl;
+        cout << "Restart flow file name: " << Restart_FlowFileName << "." << endl;
+      }
+      
+      if (Linearized) {
+        cout << "Linearized flow solution file name: " << Solution_LinFileName << "." << endl;
+        cout << "Restart linearized flow file name: " << Restart_LinFileName << "." << endl;
+        cout << "Linearized variables file name: " << Lin_FileName << "." << endl;
+        cout << "Surface linearized coefficients file name: " << SurfLinCoeff_FileName << "." << endl;
+      }
+      
+      if (Adjoint || OneShot) {
+        cout << "Adjoint solution file name: " << Solution_AdjFileName << "." << endl;
+        cout << "Restart adjoint file name: " << Restart_AdjFileName << "." << endl;
+        cout << "Adjoint variables file name: " << Adj_FileName << "." << endl;
+        cout << "Surface adjoint coefficients file name: " << SurfAdjCoeff_FileName << "." << endl;
+      }
+    }
+    else {
+      cout << "Surface structure coefficients file name: " << SurfStructure_FileName << "." << endl;
+      cout << "Structure variables file name: " << Structure_FileName << "." << endl;
+      cout << "Restart structure file name: " << Restart_FlowFileName << "." << endl;
+    }
+    
 	}
 
 	if (val_software == SU2_SOL) {
@@ -4529,32 +5261,30 @@ CConfig::~CConfig(void)
 	delete [] U_FreeStreamND;
 
 	/*--- If allocated, delete arrays for Plasma solver ---*/
-	if (Species_Gas_Constant != NULL)
-		delete [] Species_Gas_Constant;
-	if (Species_Gamma != NULL)
-		delete [] Species_Gamma;
-	if (Molar_Mass != NULL)
-		delete[] Molar_Mass;
-	if (Particle_Mass != NULL)
-		delete [] Particle_Mass;
-	if (Molecular_Diameter != NULL)
-		delete [] Molecular_Diameter;
-	if (Gas_Composition != NULL)
-		delete [] Gas_Composition;
-	if (Charge_Number != NULL)
-		delete [] Charge_Number;
-	if (Enthalpy_Formation != NULL)
-		delete [] Enthalpy_Formation;
-	if (ArrheniusCoefficient != NULL)
-		delete [] ArrheniusCoefficient;
-	if (ArrheniusEta != NULL)
-		delete [] ArrheniusEta;
-	if (ArrheniusTheta != NULL)
-		delete [] ArrheniusTheta;
-	if (CharVibTemp != NULL)
-		delete [] CharVibTemp;
+	if (Species_Gas_Constant != NULL) delete [] Species_Gas_Constant;
+	if (Species_Gamma        != NULL) delete [] Species_Gamma;
+	if (Molar_Mass           != NULL) delete[] Molar_Mass;
+	if (Particle_Mass        != NULL) delete [] Particle_Mass;
+	if (Molecular_Diameter   != NULL) delete [] Molecular_Diameter;
+	if (Gas_Composition      != NULL) delete [] Gas_Composition;
+	if (Charge_Number        != NULL) delete [] Charge_Number;
+	if (Enthalpy_Formation   != NULL) delete [] Enthalpy_Formation;
+	if (ArrheniusCoefficient != NULL) delete [] ArrheniusCoefficient;
+	if (ArrheniusEta         != NULL) delete [] ArrheniusEta;
+	if (ArrheniusTheta       != NULL) delete [] ArrheniusTheta;
+	if (CharVibTemp          != NULL) delete [] CharVibTemp;
+  if (CharElTemp           != NULL) {
+    for (unsigned short iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+      delete[] CharElTemp[iSpecies];
+    delete [] CharElTemp;
+  }
+  if (degen                != NULL) {
+    for (unsigned short iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+      delete[] degen[iSpecies];
+    delete [] degen;
+  }
 	unsigned short ii, iReaction;
-	if (Reactions != NULL) {
+	if (Reactions            != NULL) {
 		for (iReaction = 0; iReaction < nReactions; iReaction++) {
 			for (ii = 0; ii < 2; ii++) {
 				delete [] Reactions[iReaction][ii];
@@ -4665,6 +5395,24 @@ void CConfig::SetFileNameDomain(unsigned short val_domain) {
 		SurfAdjCoeff_FileName = old_name + buffer;
 	}
 
+  old_name = SurfStructure_FileName;
+	if (MPI::COMM_WORLD.Get_size() > 1) {
+		sprintf (buffer, "_%d", int(val_domain));
+		SurfStructure_FileName = old_name + buffer;
+	}
+  
+  old_name = SurfWave_FileName;
+	if (MPI::COMM_WORLD.Get_size() > 1) {
+		sprintf (buffer, "_%d", int(val_domain));
+		SurfWave_FileName = old_name + buffer;
+	}
+  
+  old_name = SurfHeat_FileName;
+	if (MPI::COMM_WORLD.Get_size() > 1) {
+		sprintf (buffer, "_%d", int(val_domain));
+		SurfHeat_FileName = old_name + buffer;
+	}
+  
 	if (MPI::COMM_WORLD.Get_size() > 1) {
 
 		/*--- Standard flow and adjoint output ---*/
@@ -4764,20 +5512,22 @@ string CConfig::GetObjFunc_Extension(string val_filename) {
 unsigned short CConfig::GetContainerPosition(unsigned short val_eqsystem) {
 
 	switch (val_eqsystem) {
-	case RUNTIME_POT_SYS: return FLOW_SOL;
-	case RUNTIME_PLASMA_SYS: return PLASMA_SOL;
-	case RUNTIME_FLOW_SYS: return FLOW_SOL;
-	case RUNTIME_TURB_SYS: return TURB_SOL;
-	case RUNTIME_TRANS_SYS: return TRANS_SOL;
-	case RUNTIME_ELEC_SYS: return ELEC_SOL;
-	case RUNTIME_WAVE_SYS: return WAVE_SOL;
-	case RUNTIME_FEA_SYS: return FEA_SOL;
-	case RUNTIME_ADJPOT_SYS: return ADJFLOW_SOL;
-	case RUNTIME_ADJFLOW_SYS: return ADJFLOW_SOL;
-	case RUNTIME_ADJTURB_SYS: return ADJTURB_SOL;
+	case RUNTIME_PLASMA_SYS:    return PLASMA_SOL;
+	case RUNTIME_FLOW_SYS:      return FLOW_SOL;
+	case RUNTIME_TURB_SYS:      return TURB_SOL;
+  case RUNTIME_TNE2_SYS:      return TNE2_SOL;
+	case RUNTIME_TRANS_SYS:     return TRANS_SOL;
+	case RUNTIME_POISSON_SYS:   return POISSON_SOL;
+	case RUNTIME_WAVE_SYS:      return WAVE_SOL;
+  case RUNTIME_HEAT_SYS:      return HEAT_SOL;
+  case RUNTIME_FEA_SYS:       return FEA_SOL;
+  case RUNTIME_ADJPOT_SYS:    return ADJFLOW_SOL;
+	case RUNTIME_ADJFLOW_SYS:   return ADJFLOW_SOL;
+	case RUNTIME_ADJTURB_SYS:   return ADJTURB_SOL;
+  case RUNTIME_ADJTNE2_SYS:   return ADJTNE2_SOL;
 	case RUNTIME_ADJPLASMA_SYS: return ADJPLASMA_SOL;
-	case RUNTIME_LINPOT_SYS: return LINFLOW_SOL;
-	case RUNTIME_LINFLOW_SYS: return LINFLOW_SOL;
+	case RUNTIME_LINPOT_SYS:    return LINFLOW_SOL;
+	case RUNTIME_LINFLOW_SYS:   return LINFLOW_SOL;
 	case RUNTIME_MULTIGRID_SYS: return 0;
 	}
 	return 0;
@@ -4916,6 +5666,24 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Turb());
 		}
 		break;
+    case TNE2_EULER:
+      if (val_system == RUNTIME_TNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_TNE2(), GetKind_Centered_TNE2(),
+                              GetKind_Upwind_TNE2(), GetKind_SlopeLimit_TNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_TNE2());
+        SetKind_ViscNumScheme(NONE);
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_TNE2());
+      }
+      break;
+    case TNE2_NAVIER_STOKES:
+      if (val_system == RUNTIME_TNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_TNE2(), GetKind_Centered_TNE2(),
+                              GetKind_Upwind_TNE2(), GetKind_SlopeLimit_TNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_TNE2());
+        SetKind_ViscNumScheme(GetKind_ViscNumScheme_TNE2());
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_TNE2());
+      }
+      break;
 	case PLASMA_EULER:
 		if (val_system == RUNTIME_PLASMA_SYS) {
 			SetKind_ConvNumScheme(GetKind_ConvNumScheme_Plasma(), GetKind_Centered_Plasma(),
@@ -4924,10 +5692,10 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_SourNumScheme(GetKind_SourNumScheme_Plasma());
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Plasma());
 		}
-		if (val_system == RUNTIME_ELEC_SYS) {
+		if (val_system == RUNTIME_POISSON_SYS) {
 			SetKind_ConvNumScheme(NONE, NONE, NONE, NONE);
-			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Elec());
-			SetKind_SourNumScheme(GetKind_SourNumScheme_Elec());
+			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Poisson());
+			SetKind_SourNumScheme(GetKind_SourNumScheme_Poisson());
 			SetKind_TimeIntScheme(NONE);
 		}
 		break;
@@ -4939,43 +5707,11 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_SourNumScheme(GetKind_SourNumScheme_Plasma());
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Plasma());
 		}
-		if (val_system == RUNTIME_ELEC_SYS) {
+		if (val_system == RUNTIME_POISSON_SYS) {
 			SetKind_ConvNumScheme(NONE, NONE, NONE, NONE);
-			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Elec());
-			SetKind_SourNumScheme(GetKind_SourNumScheme_Elec());
+			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Poisson());
+			SetKind_SourNumScheme(GetKind_SourNumScheme_Poisson());
 			SetKind_TimeIntScheme(NONE);
-		}
-		break;
-	case ADJ_PLASMA_EULER:
-		if (val_system == RUNTIME_PLASMA_SYS) {
-			SetKind_ConvNumScheme(GetKind_ConvNumScheme_Plasma(), GetKind_Centered_Plasma(),
-					GetKind_Upwind_Plasma(), GetKind_SlopeLimit_Plasma());
-			SetKind_ViscNumScheme(NONE);
-			SetKind_SourNumScheme(GetKind_SourNumScheme_Plasma());
-			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Plasma());
-		}
-		if (val_system == RUNTIME_ADJPLASMA_SYS) {
-			SetKind_ConvNumScheme(GetKind_ConvNumScheme_AdjPlasma(), GetKind_Centered_AdjPlasma(),
-					GetKind_Upwind_AdjPlasma(), GetKind_SlopeLimit_AdjPlasma());
-			SetKind_ViscNumScheme(NONE);
-			SetKind_SourNumScheme(GetKind_SourNumScheme_AdjPlasma());
-			SetKind_TimeIntScheme(GetKind_TimeIntScheme_AdjPlasma());
-		}
-		break;
-	case ADJ_PLASMA_NAVIER_STOKES:
-		if (val_system == RUNTIME_PLASMA_SYS) {
-			SetKind_ConvNumScheme(GetKind_ConvNumScheme_Plasma(), GetKind_Centered_Plasma(),
-					GetKind_Upwind_Plasma(), GetKind_SlopeLimit_Plasma());
-			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Plasma());
-			SetKind_SourNumScheme(GetKind_SourNumScheme_Plasma());
-			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Plasma());
-		}
-		if (val_system == RUNTIME_ADJPLASMA_SYS) {
-			SetKind_ConvNumScheme(GetKind_ConvNumScheme_AdjPlasma(), GetKind_Centered_AdjPlasma(),
-					GetKind_Upwind_AdjPlasma(), GetKind_SlopeLimit_AdjPlasma());
-			SetKind_ViscNumScheme(GetKind_ViscNumScheme_AdjPlasma());
-			SetKind_SourNumScheme(GetKind_SourNumScheme_AdjPlasma());
-			SetKind_TimeIntScheme(GetKind_TimeIntScheme_AdjPlasma());
 		}
 		break;
 	case ADJ_EULER:
@@ -5040,6 +5776,38 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_AdjTurb());
 		}
 		break;
+  case ADJ_TNE2_EULER:
+      if (val_system == RUNTIME_TNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_TNE2(), GetKind_Centered_TNE2(),
+                              GetKind_Upwind_TNE2(), GetKind_SlopeLimit_TNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_TNE2());
+        SetKind_ViscNumScheme(NONE);
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_TNE2());
+      }
+      if (val_system == RUNTIME_ADJTNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_AdjTNE2(), GetKind_Centered_AdjTNE2(),
+                              GetKind_Upwind_AdjTNE2(), GetKind_SlopeLimit_AdjTNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_AdjTNE2());
+        SetKind_ViscNumScheme(NONE);
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_AdjTNE2());
+      }
+      break;
+  case ADJ_TNE2_NAVIER_STOKES:
+      if (val_system == RUNTIME_TNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_TNE2(), GetKind_Centered_TNE2(),
+                              GetKind_Upwind_TNE2(), GetKind_SlopeLimit_TNE2());
+        SetKind_ViscNumScheme(GetKind_ViscNumScheme_TNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_TNE2());
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_TNE2());
+      }
+      if (val_system == RUNTIME_ADJTNE2_SYS) {
+        SetKind_ConvNumScheme(GetKind_ConvNumScheme_AdjTNE2(), GetKind_Centered_AdjTNE2(),
+                              GetKind_Upwind_AdjTNE2(), GetKind_SlopeLimit_AdjTNE2());
+        SetKind_ViscNumScheme(GetKind_ViscNumScheme_AdjTNE2());
+        SetKind_SourNumScheme(GetKind_SourNumScheme_AdjTNE2());
+        SetKind_TimeIntScheme(GetKind_TimeIntScheme_AdjTNE2());
+      }
+      break;
 	case LIN_EULER:
 		if (val_system == RUNTIME_FLOW_SYS) {
 			SetKind_ConvNumScheme(GetKind_ConvNumScheme_Flow(), GetKind_Centered_Flow(),
@@ -5054,12 +5822,12 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_LinFlow());
 		}
 		break;
-	case ELECTRIC_POTENTIAL:
-		if (val_system == RUNTIME_ELEC_SYS) {
+	case POISSON_EQUATION:
+		if (val_system == RUNTIME_POISSON_SYS) {
 			SetKind_ConvNumScheme(NONE, NONE, NONE, NONE);
-			SetKind_SourNumScheme(GetKind_SourNumScheme_Elec());
-			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Elec());
-			SetKind_TimeIntScheme(NONE);
+			SetKind_SourNumScheme(GetKind_SourNumScheme_Poisson());
+			SetKind_ViscNumScheme(GetKind_ViscNumScheme_Poisson());
+			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Poisson());
 		}
 		break;
 	case WAVE_EQUATION:
@@ -5070,6 +5838,14 @@ void CConfig::SetGlobalParam(unsigned short val_solver, unsigned short val_syste
 			SetKind_TimeIntScheme(GetKind_TimeIntScheme_Wave());
 		}
 		break;
+  case HEAT_EQUATION:
+    if (val_system == RUNTIME_HEAT_SYS) {
+      SetKind_ConvNumScheme(NONE, NONE, NONE, NONE);
+      SetKind_SourNumScheme(GetKind_SourNumScheme_Heat());
+      SetKind_ViscNumScheme(GetKind_ViscNumScheme_Heat());
+      SetKind_TimeIntScheme(GetKind_TimeIntScheme_Heat());
+    }
+    break;
 	case LINEAR_ELASTICITY:
 		if (val_system == RUNTIME_FEA_SYS) {
 			SetKind_ConvNumScheme(NONE, NONE, NONE, NONE);
@@ -5369,6 +6145,7 @@ double CConfig::GetFlowLoad_Value(string val_marker) {
 }
 
 void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short val_iZone) {
+  
 	double Mach2Vel_FreeStream, ModVel_FreeStream, Energy_FreeStream = 0.0, ModVel_FreeStreamND;
 	double Velocity_Reynolds;
 	unsigned short iDim;
@@ -5625,7 +6402,8 @@ void CConfig::SetNondimensionalization(unsigned short val_nDim, unsigned short v
 	double omega_Inf = Density_FreeStreamND*kine_Inf/(Viscosity_FreeStreamND*Turb2LamViscRatio_FreeStream);
   
 	/*--- Write output to the console if this is the master node and first domain ---*/
-	if ((rank == MASTER_NODE) && (val_iZone == 0)) {
+	if ((rank == MASTER_NODE) && (val_iZone == 0) && (Kind_Solver != LINEAR_ELASTICITY) &&
+      (Kind_Solver != HEAT_EQUATION) && (Kind_Solver != WAVE_EQUATION)) {
     
 		cout << endl <<"---------------- Flow & Non-dimensionalization information ---------------" << endl;
     

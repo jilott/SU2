@@ -2,7 +2,7 @@
  * \file solution_adjoint_mean.cpp
  * \brief Main subrotuines for solving adjoint problems (Euler, Navier-Stokes, etc.).
  * \author Aerospace Design Laboratory (Stanford University) <http://su2.stanford.edu>.
- * \version 2.0.7
+ * \version 2.0.8
  *
  * Stanford University Unstructured (SU2).
  * Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).
@@ -4223,7 +4223,7 @@ void CAdjEulerSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
 					if (LevelSet > epsilon) Density_Outlet = RatioDensity*config->GetDensity_FreeStreamND();
 					U_outlet[0] = PressFreeSurface + Density_Outlet*((FreeSurface_Zero-Height)/(Froude*Froude));
           
-					/*--- Neumman condition in the interface for the pressure and density ---*/
+					/*--- Neumann condition in the interface for the pressure and density ---*/
 					if (fabs(LevelSet) <= epsilon) {
 						U_outlet[0] = solver_container[FLOW_SOL]->node[Point_Normal]->GetSolution(0);
 						Density_Outlet = solver_container[FLOW_SOL]->node[Point_Normal]->GetDensityInc();
@@ -4239,7 +4239,7 @@ void CAdjEulerSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
           
 				}
         
-        /*--- Neumman condition for the velocity ---*/
+        /*--- Neumann condition for the velocity ---*/
 				for (iDim = 0; iDim < nDim; iDim++)
 					U_outlet[iDim+1] = node[Point_Normal]->GetSolution(iDim+1);
         

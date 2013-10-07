@@ -2,7 +2,7 @@
  * \file integration_structure.cpp
  * \brief This subroutine includes the space and time integration structure.
  * \author Aerospace Design Laboratory (Stanford University) <http://su2.stanford.edu>.
- * \version 2.0.7
+ * \version 2.0.8
  *
  * Stanford University Unstructured (SU2).
  * Copyright (C) 2012-2013 Aerospace Design Laboratory (ADL).
@@ -88,9 +88,9 @@ void CIntegration::Space_Integration(CGeometry *geometry, CSolver **solver_conta
 			case INLET_FLOW:
 				solver_container[MainSolver]->BC_Inlet(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
-            case SUPERSONIC_INLET:
+      case SUPERSONIC_INLET:
 				solver_container[MainSolver]->BC_Supersonic_Inlet(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
-                break;
+        break;
 			case OUTLET_FLOW:
 				solver_container[MainSolver]->BC_Outlet(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
@@ -100,7 +100,7 @@ void CIntegration::Space_Integration(CGeometry *geometry, CSolver **solver_conta
 			case SYMMETRY_PLANE:
 				solver_container[MainSolver]->BC_Sym_Plane(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
-            case NACELLE_EXHAUST:
+      case NACELLE_EXHAUST:
 				solver_container[MainSolver]->BC_Nacelle_Exhaust(geometry, solver_container, numerics[CONV_BOUND_TERM], numerics[VISC_BOUND_TERM], config, iMarker);
 				break;
 			case NACELLE_INFLOW:
@@ -115,17 +115,17 @@ void CIntegration::Space_Integration(CGeometry *geometry, CSolver **solver_conta
 			case ELECTRODE_BOUNDARY:
 				solver_container[MainSolver]->BC_Electrode(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
-			case DIELECTRIC_BOUNDARY:
-				solver_container[MainSolver]->BC_Dielectric(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
+			case DIELEC_BOUNDARY:
+				solver_container[MainSolver]->BC_Dielec(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
 			case DISPLACEMENT_BOUNDARY:
-				solver_container[MainSolver]->BC_Displacement(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
+				solver_container[MainSolver]->BC_Normal_Displacement(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
 			case FLOWLOAD_BOUNDARY:
-				solver_container[MainSolver]->BC_FlowLoad(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
+				solver_container[MainSolver]->BC_Flow_Load(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
 			case LOAD_BOUNDARY:
-				solver_container[MainSolver]->BC_Load(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
+				solver_container[MainSolver]->BC_Normal_Load(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
 				break;
 			case FWH_SURFACE:
 				solver_container[MainSolver]->BC_FWH(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
@@ -135,6 +135,9 @@ void CIntegration::Space_Integration(CGeometry *geometry, CSolver **solver_conta
 				break;
 			case NEUMANN:
 				solver_container[MainSolver]->BC_Neumann(geometry, solver_container, numerics[CONV_BOUND_TERM], config, iMarker);
+				break;
+      case DIRICHLET:
+				solver_container[MainSolver]->BC_Dirichlet(geometry, solver_container, config, iMarker);
 				break;
 		}
 	}
@@ -204,17 +207,6 @@ void CIntegration::Time_Integration(CGeometry *geometry, CSolver **solver_contai
       break;
   }
   
-}
-
-void CIntegration::Solving_Linear_System(CGeometry *geometry, CSolver *solver, CSolver **solver_container, CConfig *config, 
-		unsigned short iMesh) {
-
-	/*--- Compute the solution of the linear system ---*/
-	solver->Solve_LinearSystem(geometry, solver_container, config, iMesh);
-
-	/*--- Compute the residual of the linear system ---*/
-	solver->Compute_Residual(geometry, solver_container, config, iMesh);
-
 }
 
 void CIntegration::Convergence_Monitoring(CGeometry *geometry, CConfig *config, unsigned long Iteration, double monitor) {
