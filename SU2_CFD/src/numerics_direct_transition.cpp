@@ -511,13 +511,12 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 	mach = config->GetMach_FreeStreamND();
 	tu   = config->GetTurbulenceIntensity_FreeStream();
 
-	/*--- Compute vorticity and strain (TODO: Update for 3D) ---*/
-	Vorticity = fabs(PrimVar_Grad_i[1][1]-PrimVar_Grad_i[2][0]);
+	/*--- Compute vorticity and strain ---*/
+	Vorticity = (PrimVar_Grad_i[2][0]-PrimVar_Grad_i[1][1])*(PrimVar_Grad_i[2][0]-PrimVar_Grad_i[1][1]);
+	if (nDim == 3) Vorticity += ( (PrimVar_Grad_i[3][1]-PrimVar_Grad_i[2][2])*(PrimVar_Grad_i[3][1]-PrimVar_Grad_i[2][2]) +
+                                 (PrimVar_Grad_i[1][2]-PrimVar_Grad_i[3][0])*(PrimVar_Grad_i[1][2]-PrimVar_Grad_i[3][0]) );
 
 	/*-- Strain = sqrt(2*Sij*Sij) --*/
-	// strain = sqrt(0.5*(    PrimVar_Grad_i[1][0]*PrimVar_Grad_i[1][0]
-	//                +  2.0*PrimVar_Grad_i[1][1]+PrimVar_Grad_i[2][0]
-    //                +      PrimVar_Grad_i[2][1]*PrimVar_Grad_i[2][1]  ));
 	strain = 0.0;
 	for (int i=0; i<nDim; i++) {
 		for(int j=0; j<nDim; j++) {
@@ -553,7 +552,7 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 	if (nDim==3)
 		du_ds += U_i[3]/(U_i[0]*Velocity_Mag) * dU_dz;
 
-	/*-- Fixed-point iterations to solve REth correlation --*/
+	/*-- Begin iterations to solve REth correlation --*/
 	f_lambda = 1.;
 	tu = tu*100.;
 
@@ -616,6 +615,7 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 	/*-- Restore tu to its regular value --*/
 	tu /= 100;
 
+  /*-- Evaluate correlation with solved value of lambda --*/
 	if (lambda <= 0.0)
 		f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5));
 	else
@@ -626,8 +626,13 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 	else
 		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
 
-	lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-
+  /*-- Check lambda TODO: Remove this --*/
+  if (dist>1e-11) {
+    lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
+    check        = abs(lambda-lambda_check);
+    if (check>1e-8)
+      cout << "WARNING: lambda_check does not match lambda" << endl;
+  }
 
 	/*-- Calculate blending function f_theta --*/
 	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
