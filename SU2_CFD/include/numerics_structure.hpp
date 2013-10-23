@@ -4795,6 +4795,7 @@ private:
   double beta, gamma_eff, intermittency;
   double Freattach, r_t, s1;
   double Production, Destruction, CrossProduction;
+  double production_jacobian_contribution, destruction_jacobian_contribution;
 
 public:
 
