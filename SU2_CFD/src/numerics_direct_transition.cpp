@@ -627,12 +627,10 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
 
   /*-- Check lambda TODO: Remove this --*/
-  if (dist>1e-11) {
     lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-    check        = abs(lambda-lambda_check);
+    double check = abs(lambda-lambda_check);
     if (check>1e-8)
       cout << "WARNING: lambda_check does not match lambda" << endl;
-  }
 
 	/*-- Calculate blending function f_theta --*/
 	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
