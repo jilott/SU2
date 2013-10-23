@@ -1394,7 +1394,7 @@ public:
 	 */
 	virtual void ComputeResidual(double *val_residual_i, double *val_residual_j);
 
-  virtual void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug) ;
+  virtual void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_eff, CConfig *config, bool boundary, ofstream &sagt_debug) ;
 
 	/*!
 	 * \overload
@@ -4943,7 +4943,7 @@ public:
 	 * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
 	 * \param[in] config - Definition of the particular problem.
 	 */
-  void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug);
+  void ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_eff, CConfig *config, bool boundary, ofstream &sagt_debug);
   
   void translm_helper(CConfig *config);
   double corr_func(double lambda);

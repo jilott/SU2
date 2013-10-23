@@ -36,9 +36,3 @@ CTransLMVariable::CTransLMVariable(double val_density, double val_intermittency,
 
 CTransLMVariable::~CTransLMVariable(void) { }
 
-void CTransLMVariable::ComputeGammaEff(double Density) {
-  
-	/* -- Correction for separation-induced transition -- */
-	gamma_eff = max(Solution[0]/Density,gamma_sep);
-  
-}

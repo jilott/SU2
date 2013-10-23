@@ -201,8 +201,7 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
     			node[iPoint_Local] = new CTransLMVariable(Density, Solution[0]/Density, Solution[1]/Density, nDim, nVar, config);
 
     			/*--- Compute gamma_eff, which will be needed in first iteration of turbulence model ---*/
-    			node[iPoint_Local]->SetGammaSep(1.0); // TODO: Need to recompute gamma_sep for restart
-    			node[iPoint_Local]->ComputeGammaEff(Density);
+    			node[iPoint_Local]->SetGammaEff(1.0); // TODO: Need to recompute gamma_eff for restart
 			}
 			iPoint_Global++;
 		}
@@ -249,6 +248,425 @@ CTransLMSolver::~CTransLMSolver(void){
 	for (iVar = 0; iVar < nVar; iVar++)
 		delete [] cvector[iVar];
 	delete [] cvector;
+}
+
+void CTransLMSolver::Set_MPI_Solution(CGeometry *geometry, CConfig *config) {
+	unsigned short iVar, iMarker, MarkerS, MarkerR;
+	unsigned long iVertex, iPoint, nVertexS, nVertexR, nBufferS_Vector, nBufferR_Vector, nBufferS_Scalar, nBufferR_Scalar;
+	double *Buffer_Receive_U = NULL, *Buffer_Send_U = NULL, *Buffer_Receive_gamma_eff = NULL, *Buffer_Send_gamma_eff = NULL;
+	int send_to, receive_from;
+
+#ifndef NO_MPI
+    MPI::Status status;
+    MPI::Request send_request, recv_request;
+#endif
+
+	for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+
+		if ((config->GetMarker_All_Boundary(iMarker) == SEND_RECEIVE) &&
+            (config->GetMarker_All_SendRecv(iMarker) > 0)) {
+
+			MarkerS = iMarker;  MarkerR = iMarker+1;
+
+            send_to = config->GetMarker_All_SendRecv(MarkerS)-1;
+			receive_from = abs(config->GetMarker_All_SendRecv(MarkerR))-1;
+
+			nVertexS = geometry->nVertex[MarkerS];  nVertexR = geometry->nVertex[MarkerR];
+			nBufferS_Vector = nVertexS*nVar;        nBufferR_Vector = nVertexR*nVar;
+            nBufferS_Scalar = nVertexS;             nBufferR_Scalar = nVertexR;
+
+            /*--- Allocate Receive and send buffers  ---*/
+            Buffer_Receive_U = new double [nBufferR_Vector];
+            Buffer_Send_U = new double[nBufferS_Vector];
+
+            Buffer_Receive_gamma_eff = new double [nBufferR_Scalar];
+            Buffer_Send_gamma_eff = new double[nBufferS_Scalar];
+
+            /*--- Copy the solution that should be sended ---*/
+            for (iVertex = 0; iVertex < nVertexS; iVertex++) {
+                iPoint = geometry->vertex[MarkerS][iVertex]->GetNode();
+                Buffer_Send_gamma_eff[iVertex] = node[iPoint]->GetGammaEff();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Send_U[iVar*nVertexS+iVertex] = node[iPoint]->GetSolution(iVar);
+            }
+
+#ifndef NO_MPI
+
+            /*--- Send/Receive information using Sendrecv ---*/
+            MPI::COMM_WORLD.Sendrecv(Buffer_Send_U, nBufferS_Vector, MPI::DOUBLE, send_to, 0,
+                                     Buffer_Receive_U, nBufferR_Vector, MPI::DOUBLE, receive_from, 0);
+            MPI::COMM_WORLD.Sendrecv(Buffer_Send_gamma_eff, nBufferS_Scalar, MPI::DOUBLE, send_to, 1,
+                                     Buffer_Receive_gamma_eff, nBufferR_Scalar, MPI::DOUBLE, receive_from, 1);
+
+#else
+
+            /*--- Receive information without MPI ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                Buffer_Receive_gamma_eff[iVertex] = node[iPoint]->GetGammaEff();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Receive_U[iVar*nVertexR+iVertex] = Buffer_Send_U[iVar*nVertexR+iVertex];
+            }
+
+#endif
+
+            /*--- Deallocate send buffer ---*/
+            delete [] Buffer_Send_U;
+            delete [] Buffer_Send_gamma_eff;
+
+            /*--- Do the coordinate transformation ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+
+                /*--- Find point and its type of transformation ---*/
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+
+                /*--- Copy conservative variables. ---*/
+                node[iPoint]->SetGammaEff(Buffer_Receive_gamma_eff[iVertex]);
+                for (iVar = 0; iVar < nVar; iVar++)
+                    node[iPoint]->SetSolution(iVar, Buffer_Receive_U[iVar*nVertexR+iVertex]);
+
+            }
+
+            /*--- Deallocate receive buffer ---*/
+            delete [] Buffer_Receive_gamma_eff;
+            delete [] Buffer_Receive_U;
+
+        }
+
+	}
+
+}
+
+void CTransLMSolver::Set_MPI_Solution_Old(CGeometry *geometry, CConfig *config) {
+	unsigned short iVar, iMarker, MarkerS, MarkerR;
+	unsigned long iVertex, iPoint, nVertexS, nVertexR, nBufferS_Vector, nBufferR_Vector;
+	double *Buffer_Receive_U = NULL, *Buffer_Send_U = NULL;
+	int send_to, receive_from;
+
+#ifndef NO_MPI
+    MPI::Status status;
+    MPI::Request send_request, recv_request;
+#endif
+
+	for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+
+		if ((config->GetMarker_All_Boundary(iMarker) == SEND_RECEIVE) &&
+            (config->GetMarker_All_SendRecv(iMarker) > 0)) {
+
+			MarkerS = iMarker;  MarkerR = iMarker+1;
+
+            send_to = config->GetMarker_All_SendRecv(MarkerS)-1;
+			receive_from = abs(config->GetMarker_All_SendRecv(MarkerR))-1;
+
+			nVertexS = geometry->nVertex[MarkerS];  nVertexR = geometry->nVertex[MarkerR];
+			nBufferS_Vector = nVertexS*nVar;        nBufferR_Vector = nVertexR*nVar;
+
+            /*--- Allocate Receive and send buffers  ---*/
+            Buffer_Receive_U = new double [nBufferR_Vector];
+            Buffer_Send_U = new double[nBufferS_Vector];
+
+            /*--- Copy the solution old that should be sended ---*/
+            for (iVertex = 0; iVertex < nVertexS; iVertex++) {
+                iPoint = geometry->vertex[MarkerS][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Send_U[iVar*nVertexS+iVertex] = node[iPoint]->GetSolution_Old(iVar);
+            }
+
+#ifndef NO_MPI
+
+            //      /*--- Send/Receive using non-blocking communications ---*/
+            //      send_request = MPI::COMM_WORLD.Isend(Buffer_Send_U, nBufferS_Vector, MPI::DOUBLE, 0, send_to);
+            //      recv_request = MPI::COMM_WORLD.Irecv(Buffer_Receive_U, nBufferR_Vector, MPI::DOUBLE, 0, receive_from);
+            //      send_request.Wait(status);
+            //      recv_request.Wait(status);
+
+            /*--- Send/Receive information using Sendrecv ---*/
+            MPI::COMM_WORLD.Sendrecv(Buffer_Send_U, nBufferS_Vector, MPI::DOUBLE, send_to, 0,
+                                     Buffer_Receive_U, nBufferR_Vector, MPI::DOUBLE, receive_from, 0);
+
+#else
+
+            /*--- Receive information without MPI ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Receive_U[iVar*nVertexR+iVertex] = Buffer_Send_U[iVar*nVertexR+iVertex];
+            }
+
+#endif
+
+            /*--- Deallocate send buffer ---*/
+            delete [] Buffer_Send_U;
+
+            /*--- Do the coordinate transformation ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+
+                /*--- Find point and its type of transformation ---*/
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+
+                /*--- Copy transformed conserved variables back into buffer. ---*/
+                for (iVar = 0; iVar < nVar; iVar++)
+                    node[iPoint]->SetSolution_Old(iVar, Buffer_Receive_U[iVar*nVertexR+iVertex]);
+
+            }
+
+            /*--- Deallocate receive buffer ---*/
+            delete [] Buffer_Receive_U;
+
+        }
+
+	}
+}
+
+void CTransLMSolver::Set_MPI_Solution_Limiter(CGeometry *geometry, CConfig *config) {
+	unsigned short iVar, iMarker, iPeriodic_Index, MarkerS, MarkerR;
+	unsigned long iVertex, iPoint, nVertexS, nVertexR, nBufferS_Vector, nBufferR_Vector;
+	double rotMatrix[3][3], *angles, theta, cosTheta, sinTheta, phi, cosPhi, sinPhi, psi, cosPsi, sinPsi,
+    *Buffer_Receive_Limit = NULL, *Buffer_Send_Limit = NULL;
+	int send_to, receive_from;
+
+#ifndef NO_MPI
+    MPI::Status status;
+    MPI::Request send_request, recv_request;
+#endif
+
+	for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+
+		if ((config->GetMarker_All_Boundary(iMarker) == SEND_RECEIVE) &&
+            (config->GetMarker_All_SendRecv(iMarker) > 0)) {
+
+			MarkerS = iMarker;  MarkerR = iMarker+1;
+
+            send_to = config->GetMarker_All_SendRecv(MarkerS)-1;
+			receive_from = abs(config->GetMarker_All_SendRecv(MarkerR))-1;
+
+			nVertexS = geometry->nVertex[MarkerS];  nVertexR = geometry->nVertex[MarkerR];
+			nBufferS_Vector = nVertexS*nVar;        nBufferR_Vector = nVertexR*nVar;
+
+            /*--- Allocate Receive and send buffers  ---*/
+            Buffer_Receive_Limit = new double [nBufferR_Vector];
+            Buffer_Send_Limit = new double[nBufferS_Vector];
+
+            /*--- Copy the solution old that should be sended ---*/
+            for (iVertex = 0; iVertex < nVertexS; iVertex++) {
+                iPoint = geometry->vertex[MarkerS][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Send_Limit[iVar*nVertexS+iVertex] = node[iPoint]->GetLimiter(iVar);
+            }
+
+#ifndef NO_MPI
+
+            //      /*--- Send/Receive using non-blocking communications ---*/
+            //      send_request = MPI::COMM_WORLD.Isend(Buffer_Send_Limit, nBufferS_Vector, MPI::DOUBLE, 0, send_to);
+            //      recv_request = MPI::COMM_WORLD.Irecv(Buffer_Receive_Limit, nBufferR_Vector, MPI::DOUBLE, 0, receive_from);
+            //      send_request.Wait(status);
+            //      recv_request.Wait(status);
+
+            /*--- Send/Receive information using Sendrecv ---*/
+            MPI::COMM_WORLD.Sendrecv(Buffer_Send_Limit, nBufferS_Vector, MPI::DOUBLE, send_to, 0,
+                                     Buffer_Receive_Limit, nBufferR_Vector, MPI::DOUBLE, receive_from, 0);
+
+#else
+
+            /*--- Receive information without MPI ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Buffer_Receive_Limit[iVar*nVertexR+iVertex] = Buffer_Send_Limit[iVar*nVertexR+iVertex];
+            }
+
+#endif
+
+            /*--- Deallocate send buffer ---*/
+            delete [] Buffer_Send_Limit;
+
+            /*--- Do the coordinate transformation ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+
+                /*--- Find point and its type of transformation ---*/
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                iPeriodic_Index = geometry->vertex[MarkerR][iVertex]->GetRotation_Type();
+
+                /*--- Retrieve the supplied periodic information. ---*/
+                angles = config->GetPeriodicRotation(iPeriodic_Index);
+
+                /*--- Store angles separately for clarity. ---*/
+                theta    = angles[0];   phi    = angles[1];     psi    = angles[2];
+                cosTheta = cos(theta);  cosPhi = cos(phi);      cosPsi = cos(psi);
+                sinTheta = sin(theta);  sinPhi = sin(phi);      sinPsi = sin(psi);
+
+                /*--- Compute the rotation matrix. Note that the implicit
+                 ordering is rotation about the x-axis, y-axis,
+                 then z-axis. Note that this is the transpose of the matrix
+                 used during the preprocessing stage. ---*/
+                rotMatrix[0][0] = cosPhi*cosPsi;    rotMatrix[1][0] = sinTheta*sinPhi*cosPsi - cosTheta*sinPsi;     rotMatrix[2][0] = cosTheta*sinPhi*cosPsi + sinTheta*sinPsi;
+                rotMatrix[0][1] = cosPhi*sinPsi;    rotMatrix[1][1] = sinTheta*sinPhi*sinPsi + cosTheta*cosPsi;     rotMatrix[2][1] = cosTheta*sinPhi*sinPsi - sinTheta*cosPsi;
+                rotMatrix[0][2] = -sinPhi;          rotMatrix[1][2] = sinTheta*cosPhi;                              rotMatrix[2][2] = cosTheta*cosPhi;
+
+                /*--- Copy conserved variables before performing transformation. ---*/
+                for (iVar = 0; iVar < nVar; iVar++)
+                    Solution[iVar] = Buffer_Receive_Limit[iVar*nVertexR+iVertex];
+
+                /*--- Rotate the momentum components. ---*/
+                if (nDim == 2) {
+                    Solution[1] = rotMatrix[0][0]*Buffer_Receive_Limit[1*nVertexR+iVertex] +
+                    rotMatrix[0][1]*Buffer_Receive_Limit[2*nVertexR+iVertex];
+                    Solution[2] = rotMatrix[1][0]*Buffer_Receive_Limit[1*nVertexR+iVertex] +
+                    rotMatrix[1][1]*Buffer_Receive_Limit[2*nVertexR+iVertex];
+                }
+                else {
+                    Solution[1] = rotMatrix[0][0]*Buffer_Receive_Limit[1*nVertexR+iVertex] +
+                    rotMatrix[0][1]*Buffer_Receive_Limit[2*nVertexR+iVertex] +
+                    rotMatrix[0][2]*Buffer_Receive_Limit[3*nVertexR+iVertex];
+                    Solution[2] = rotMatrix[1][0]*Buffer_Receive_Limit[1*nVertexR+iVertex] +
+                    rotMatrix[1][1]*Buffer_Receive_Limit[2*nVertexR+iVertex] +
+                    rotMatrix[1][2]*Buffer_Receive_Limit[3*nVertexR+iVertex];
+                    Solution[3] = rotMatrix[2][0]*Buffer_Receive_Limit[1*nVertexR+iVertex] +
+                    rotMatrix[2][1]*Buffer_Receive_Limit[2*nVertexR+iVertex] +
+                    rotMatrix[2][2]*Buffer_Receive_Limit[3*nVertexR+iVertex];
+                }
+
+                /*--- Copy transformed conserved variables back into buffer. ---*/
+                for (iVar = 0; iVar < nVar; iVar++)
+                    node[iPoint]->SetLimiter(iVar, Solution[iVar]);
+
+            }
+
+            /*--- Deallocate receive buffer ---*/
+            delete [] Buffer_Receive_Limit;
+
+        }
+
+	}
+}
+
+void CTransLMSolver::Set_MPI_Solution_Gradient(CGeometry *geometry, CConfig *config) {
+	unsigned short iVar, iDim, iMarker, iPeriodic_Index, MarkerS, MarkerR;
+	unsigned long iVertex, iPoint, nVertexS, nVertexR, nBufferS_Vector, nBufferR_Vector;
+	double rotMatrix[3][3], *angles, theta, cosTheta, sinTheta, phi, cosPhi, sinPhi, psi, cosPsi, sinPsi,
+    *Buffer_Receive_Gradient = NULL, *Buffer_Send_Gradient = NULL;
+	int send_to, receive_from;
+
+#ifndef NO_MPI
+    MPI::Status status;
+    MPI::Request send_request, recv_request;
+#endif
+
+    double **Gradient = new double* [nVar];
+    for (iVar = 0; iVar < nVar; iVar++)
+        Gradient[iVar] = new double[nDim];
+
+	for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+
+		if ((config->GetMarker_All_Boundary(iMarker) == SEND_RECEIVE) &&
+            (config->GetMarker_All_SendRecv(iMarker) > 0)) {
+
+			MarkerS = iMarker;  MarkerR = iMarker+1;
+
+            send_to = config->GetMarker_All_SendRecv(MarkerS)-1;
+			receive_from = abs(config->GetMarker_All_SendRecv(MarkerR))-1;
+
+			nVertexS = geometry->nVertex[MarkerS];  nVertexR = geometry->nVertex[MarkerR];
+			nBufferS_Vector = nVertexS*nVar*nDim;        nBufferR_Vector = nVertexR*nVar*nDim;
+
+            /*--- Allocate Receive and send buffers  ---*/
+            Buffer_Receive_Gradient = new double [nBufferR_Vector];
+            Buffer_Send_Gradient = new double[nBufferS_Vector];
+
+            /*--- Copy the solution old that should be sended ---*/
+            for (iVertex = 0; iVertex < nVertexS; iVertex++) {
+                iPoint = geometry->vertex[MarkerS][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    for (iDim = 0; iDim < nDim; iDim++)
+                        Buffer_Send_Gradient[iDim*nVar*nVertexS+iVar*nVertexS+iVertex] = node[iPoint]->GetGradient(iVar, iDim);
+            }
+
+#ifndef NO_MPI
+
+            //      /*--- Send/Receive using non-blocking communications ---*/
+            //      send_request = MPI::COMM_WORLD.Isend(Buffer_Send_Gradient, nBufferS_Vector, MPI::DOUBLE, 0, send_to);
+            //      recv_request = MPI::COMM_WORLD.Irecv(Buffer_Receive_Gradient, nBufferR_Vector, MPI::DOUBLE, 0, receive_from);
+            //      send_request.Wait(status);
+            //      recv_request.Wait(status);
+
+            /*--- Send/Receive information using Sendrecv ---*/
+            MPI::COMM_WORLD.Sendrecv(Buffer_Send_Gradient, nBufferS_Vector, MPI::DOUBLE, send_to, 0,
+                                     Buffer_Receive_Gradient, nBufferR_Vector, MPI::DOUBLE, receive_from, 0);
+
+#else
+
+            /*--- Receive information without MPI ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                for (iVar = 0; iVar < nVar; iVar++)
+                    for (iDim = 0; iDim < nDim; iDim++)
+                        Buffer_Receive_Gradient[iDim*nVar*nVertexR+iVar*nVertexR+iVertex] = Buffer_Send_Gradient[iDim*nVar*nVertexR+iVar*nVertexR+iVertex];
+            }
+
+#endif
+
+            /*--- Deallocate send buffer ---*/
+            delete [] Buffer_Send_Gradient;
+
+            /*--- Do the coordinate transformation ---*/
+            for (iVertex = 0; iVertex < nVertexR; iVertex++) {
+
+                /*--- Find point and its type of transformation ---*/
+                iPoint = geometry->vertex[MarkerR][iVertex]->GetNode();
+                iPeriodic_Index = geometry->vertex[MarkerR][iVertex]->GetRotation_Type();
+
+                /*--- Retrieve the supplied periodic information. ---*/
+                angles = config->GetPeriodicRotation(iPeriodic_Index);
+
+                /*--- Store angles separately for clarity. ---*/
+                theta    = angles[0];   phi    = angles[1];     psi    = angles[2];
+                cosTheta = cos(theta);  cosPhi = cos(phi);      cosPsi = cos(psi);
+                sinTheta = sin(theta);  sinPhi = sin(phi);      sinPsi = sin(psi);
+
+                /*--- Compute the rotation matrix. Note that the implicit
+                 ordering is rotation about the x-axis, y-axis,
+                 then z-axis. Note that this is the transpose of the matrix
+                 used during the preprocessing stage. ---*/
+                rotMatrix[0][0] = cosPhi*cosPsi;    rotMatrix[1][0] = sinTheta*sinPhi*cosPsi - cosTheta*sinPsi;     rotMatrix[2][0] = cosTheta*sinPhi*cosPsi + sinTheta*sinPsi;
+                rotMatrix[0][1] = cosPhi*sinPsi;    rotMatrix[1][1] = sinTheta*sinPhi*sinPsi + cosTheta*cosPsi;     rotMatrix[2][1] = cosTheta*sinPhi*sinPsi - sinTheta*cosPsi;
+                rotMatrix[0][2] = -sinPhi;          rotMatrix[1][2] = sinTheta*cosPhi;                              rotMatrix[2][2] = cosTheta*cosPhi;
+
+                /*--- Copy conserved variables before performing transformation. ---*/
+                for (iVar = 0; iVar < nVar; iVar++)
+                    for (iDim = 0; iDim < nDim; iDim++)
+                        Gradient[iVar][iDim] = Buffer_Receive_Gradient[iDim*nVar*nVertexR+iVar*nVertexR+iVertex];
+
+                /*--- Need to rotate the gradients for all conserved variables. ---*/
+                for (iVar = 0; iVar < nVar; iVar++) {
+                    if (nDim == 2) {
+                        Gradient[iVar][0] = rotMatrix[0][0]*Buffer_Receive_Gradient[0*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[0][1]*Buffer_Receive_Gradient[1*nVar*nVertexR+iVar*nVertexR+iVertex];
+                        Gradient[iVar][1] = rotMatrix[1][0]*Buffer_Receive_Gradient[0*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[1][1]*Buffer_Receive_Gradient[1*nVar*nVertexR+iVar*nVertexR+iVertex];
+                    }
+                    else {
+                        Gradient[iVar][0] = rotMatrix[0][0]*Buffer_Receive_Gradient[0*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[0][1]*Buffer_Receive_Gradient[1*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[0][2]*Buffer_Receive_Gradient[2*nVar*nVertexR+iVar*nVertexR+iVertex];
+                        Gradient[iVar][1] = rotMatrix[1][0]*Buffer_Receive_Gradient[0*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[1][1]*Buffer_Receive_Gradient[1*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[1][2]*Buffer_Receive_Gradient[2*nVar*nVertexR+iVar*nVertexR+iVertex];
+                        Gradient[iVar][2] = rotMatrix[2][0]*Buffer_Receive_Gradient[0*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[2][1]*Buffer_Receive_Gradient[1*nVar*nVertexR+iVar*nVertexR+iVertex] + rotMatrix[2][2]*Buffer_Receive_Gradient[2*nVar*nVertexR+iVar*nVertexR+iVertex];
+                    }
+                }
+
+                /*--- Store the received information ---*/
+                for (iVar = 0; iVar < nVar; iVar++)
+                    for (iDim = 0; iDim < nDim; iDim++)
+                        node[iPoint]->SetGradient(iVar, iDim, Gradient[iVar][iDim]);
+
+            }
+
+            /*--- Deallocate receive buffer ---*/
+            delete [] Buffer_Receive_Gradient;
+
+        }
+
+	}
+
+    for (iVar = 0; iVar < nVar; iVar++)
+        delete [] Gradient[iVar];
+    delete [] Gradient;
+
 }
 
 void CTransLMSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem) {
@@ -439,7 +857,7 @@ void CTransLMSolver::Viscous_Residual(CGeometry *geometry, CSolver **solver_cont
 void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_container, CNumerics *numerics, CNumerics *second_numerics, CConfig *config, unsigned short iMesh) {
   unsigned long iPoint, iVertex;
   unsigned short iMarker;
-  double gamma_sep;
+  double gamma_eff;
   bool boundary;
 
     //cout << "Setting Trans residual -AA " << endl;
@@ -477,11 +895,10 @@ void CTransLMSolver::Source_Residual(CGeometry *geometry, CSolver **solver_conta
 	  boundary = geometry->node[iPoint]->GetBoundary();
 
 	  /*--- Compute the source term ---*/
-	  numerics->ComputeResidual_TransLM(Residual, Jacobian_i, gamma_sep, config, boundary, sagt_debug);
+	  numerics->ComputeResidual_TransLM(Residual, Jacobian_i, gamma_eff, config, boundary, sagt_debug);
 
-	  /*-- Store gamma_sep in variable class --*/
-	  node[iPoint]->SetGammaSep(gamma_sep);
-	  node[iPoint]->ComputeGammaEff(solver_container[FLOW_SOL]->node[iPoint]->GetSolution(0));
+	  /*-- Store gamma_eff in variable class, where CTurbSASolver can access it --*/
+	  node[iPoint]->SetGammaEff(gamma_eff);
 
 	  /*--- Subtract residual and the jacobian ---*/
 	  LinSysRes.SubtractBlock(iPoint, Residual);

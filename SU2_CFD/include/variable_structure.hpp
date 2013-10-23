@@ -958,13 +958,7 @@ public:
 	 * \brief A virtual member.
 	 * \return Sets separation intermittency
 	 */
-	virtual void SetGammaSep(double gamma_sep);
-
-	/*!
-	 * \brief A virtual member.
-	 * \return Sets separation intermittency
-	 */
-	virtual void ComputeGammaEff(double Density);
+	virtual void SetGammaEff(double gamma_eff_in);
 
 	/*!
 	 * \brief A virtual member.
@@ -2541,17 +2535,11 @@ public:
 	 * \brief Destructor of the class. 
 	 */
 	~CTransLMVariable(void);
-
-  /*!
-	 * \brief routine to set gamma_sep (Equation 17, Langtry 2009)
-	 * \param[in] gamma_sep_in - Value of gamma_sep computed in source term
-	 */
-  void SetGammaSep(double gamma_sep_in);
   
   /*!
 	 * \brief routine to compute gamma_eff (Equation 19, Langtry 2009)
 	 */
-  void ComputeGammaEff(double Density);
+  void SetGammaEff(double gamma_eff_in);
 
   /*!
 	 * \brief routine to set gamma_eff (Equation 19, Langtry 2009)

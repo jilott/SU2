@@ -627,10 +627,10 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
 
   /*-- Check lambda TODO: Remove this --*/
-    lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-    double check = abs(lambda-lambda_check);
-    if (check>1e-8)
-      cout << "WARNING: lambda_check does not match lambda" << endl;
+  //  lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
+  //  double check = abs(lambda-lambda_check);
+  //  if (check>1e-8)
+  //    cout << "WARNING: lambda_check does not match lambda" << endl;
 
 	/*-- Calculate blending function f_theta --*/
 	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
@@ -638,7 +638,7 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 }
 
 
-void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_sep, CConfig *config, bool boundary, ofstream &sagt_debug) {
+void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, double **val_Jacobian_i, double &gamma_eff, CConfig *config, bool boundary, ofstream &sagt_debug) {
 
 	//************************************************//
 	// Please do not delete //SU2_CPP2C comment lines //
@@ -667,6 +667,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	double theta_bl, f_reattach;
 	double delta_bl, f_wake;
 	double dU_dx, dU_dy, dU_dz;
+	double gamma_sep;
 
 	double fk[2], dx[2], J[2][2];
 	double re_theta0, f_lambda0, dre_dlamb, normres, factor;
@@ -747,6 +748,7 @@ void CSourcePieceWise_TransLM::ComputeResidual_TransLM(double *val_residual, dou
 	f_reattach = exp(-pow(0.05*r_t,4));
 	gamma_sep = s1*max(0.,re_v/(3.235*re_theta_c)-1.)*f_reattach;
 	gamma_sep = min(gamma_sep,2.0)*f_theta;
+	gamma_eff = max(gamma_sep, TransVar_i[0]/U_i[0]);
 
 	/*--- Implicit part ---*/
 	TransVar_id[0] = 1.0; TransVar_id[1] = 0.0;
