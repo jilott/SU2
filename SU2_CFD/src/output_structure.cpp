@@ -3578,6 +3578,7 @@ void COutput::SetHistory_Header(ofstream *ConvHist_file, CConfig *config) {
 	bool turbulent = ((config->GetKind_Solver() == RANS) || (config->GetKind_Solver() == ADJ_RANS));
     bool frozen_turb = config->GetFrozen_Visc();
     bool freesurface = (config->GetKind_Regime() == FREESURFACE);
+    bool transition = (config->GetKind_Trans_Model() == LM);
     
     bool isothermal = false;
     for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++)
@@ -3632,6 +3633,7 @@ void COutput::SetHistory_Header(ofstream *ConvHist_file, CConfig *config) {
         case SA:	sprintf (turb_resid, ",\"Res_Turb[0]\""); break;
         case SST:	sprintf (turb_resid, ",\"Res_Turb[0]\",\"Res_Turb[1]\""); break;
 	}
+	char trans_resid[] = ",\"Res_Trans[0]\",\"Res_Trans[1]\"";
 	char adj_turb_resid[]= ",\"Res_AdjTurb[0]\"";
 	char levelset_resid[]= ",\"Res_LevelSet\"";
 	char adj_levelset_resid[]= ",\"Res_AdjLevelSet\"";
@@ -3660,6 +3662,7 @@ void COutput::SetHistory_Header(ofstream *ConvHist_file, CConfig *config) {
             if (aeroelastic) ConvHist_file[0] << aeroelastic_coeff;
             ConvHist_file[0] << flow_resid;
             if (turbulent) ConvHist_file[0] << turb_resid;
+            if (transition) ConvHist_file[0] << trans_resid;
             ConvHist_file[0] << end;
             if (freesurface) {
                 ConvHist_file[0] << begin << flow_coeff << free_surface_coeff;
@@ -4585,7 +4588,11 @@ void COutput::SetConvergence_History(ofstream *ConvHist_file, CGeometry ***geome
                 case RANS :
                     
                     if (!DualTime_Iteration) {
-                        ConvHist_file[0] << begin << direct_coeff << flow_resid << turb_resid << end;
+                    	if (!transition)
+                    		ConvHist_file[0] << begin << direct_coeff << flow_resid << turb_resid << end;
+                    	else
+                    		ConvHist_file[0] << begin << direct_coeff << flow_resid << turb_resid << trans_resid << end;
+
                         ConvHist_file[0].flush();
                     }
                     
