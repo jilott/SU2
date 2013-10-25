@@ -612,19 +612,18 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 		}
 	}
 
-	/*-- Restore tu to its regular value --*/
-	tu /= 100;
 
   /*-- Evaluate correlation with solved value of lambda --*/
-	if (lambda <= 0.0)
-		f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5));
-	else
+	if (lambda <= 0.0) f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5)); else
 		f_lambda = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
 
 	if (tu <= 1.3)
 		re_theta_t = (1173.51 - 589.428*tu + 0.2196/pow(tu,2))*f_lambda;
 	else
 		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
+
+	/*-- Restore tu to its regular value --*/
+	tu /= 100;
 
   /*-- Check lambda TODO: Remove this --*/
   //  lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;

@@ -106,7 +106,7 @@ CTransLMSolver::CTransLMSolver(CGeometry *geometry, CConfig *config, unsigned sh
 	Density_Inf       = config->GetDensity_FreeStreamND();
 	Viscosity_Inf     = config->GetViscosity_FreeStreamND();
 	Intermittency_Inf = config->GetIntermittency_FreeStream();
-	tu_Inf            = config->GetTurbulenceIntensity_FreeStream();
+	tu_Inf            = config->GetTurbulenceIntensity_FreeStream()*100;
 	
   /*-- Initialize REth from correlation --*/
   if (tu_Inf <= 1.3) {
