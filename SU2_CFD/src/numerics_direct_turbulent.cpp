@@ -534,7 +534,7 @@ CSourcePieceWise_TurbSA::CSourcePieceWise_TurbSA(unsigned short val_nDim, unsign
     
 	incompressible = (config->GetKind_Regime() == INCOMPRESSIBLE);
 	transition     = (config->GetKind_Trans_Model() == LM);
-  transition = false; // Debugging, -AA
+  //transition = false; // Debugging, -AA
   rotating_frame = config->GetRotating_Frame();
   
 	Gamma = config->GetGamma();
