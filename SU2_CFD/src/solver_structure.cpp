@@ -1307,7 +1307,7 @@ void CSolver::Aeroelastic(CSurfaceMovement *surface_movement, CGeometry *geometr
             }
             
             /*--- Compute the new surface node locations ---*/
-            surface_movement->AeroelasticDeform(geometry, config, iMarker, structural_solution);
+            surface_movement->AeroelasticDeform(geometry, config, iMarker, iMarker_Monitoring, structural_solution);
 
         }
         
