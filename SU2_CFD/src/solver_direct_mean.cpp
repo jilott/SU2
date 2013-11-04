@@ -6704,6 +6704,15 @@ void CEulerSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig 
   string UnstExt, text_line;
   ifstream restart_file;
   
+  
+  /*--- Store old direct solutions ---*/
+  for (iMesh = 0; iMesh <= config->GetMGLevels(); iMesh++) {
+    for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
+      solver[iMesh][FLOW_SOL]->node[iPoint]->Set_Solution_time_n1();
+      solver[iMesh][FLOW_SOL]->node[iPoint]->Set_Solution_time_n();
+    }
+  }
+  
   string restart_filename = config->GetSolution_FlowFileName();
   
   /*--- Modify file name for an unsteady restart ---*/
