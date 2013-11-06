@@ -5214,14 +5214,14 @@ void CAdjNSSolver::Viscous_Sensitivity(CGeometry *geometry, CSolver **solver_con
   double Prandtl_Lam  = config->GetPrandtl_Lam();
   
   /*--- Write a per-term sensitivity csv file ---*/
-//  ofstream Sensitivity_File;
-//  if (grid_movement) {
-//    Sensitivity_File.precision(15);
-//    Sensitivity_File.open("sensitivity.csv", ios::out);
-//    Sensitivity_File <<  "\"x_coord\",\"sigma_partial1\",\"Density*Enthalpy*Psi[nDim+1]\",\"U[0+1]*Psi[0+1]\",\"U[1+1]*Psi[1+1]\",\"vartheta\",\"normal_grad_v_ux[0]\",\"normal_grad_v_ux[1]\",\"y_coord\",\"sigma_partial\",\"vartheta_partial\",\"psi5_tau_partial\",\"psi5_p_div_vel\",\"psi5_tau_grad_vel\",\"source_v_1\",\"source_v_2\",\"Global_Index\"" << endl;
-//    //    Coord[0] << Density*Psi[0] << ", " << Density*Enthalpy*Psi[nDim+1] << ", "  << U[0+1]*Psi[0+1] << ", " << U[1+1]*Psi[1+1] << ", "  <<vartheta << ", " << normal_grad_v_ux[0] << ", " << normal_grad_v_ux[1] << ", "<< y
-//    // sigma_partial << ", " << vartheta_partial << ", " <<  psi5_tau_partial<< ", " <<  psi5_p_div_vel << ", " <<  psi5_tau_grad_vel  << ", " << iPoint
-//  }
+  ofstream Sensitivity_File;
+  if (true) {
+    Sensitivity_File.precision(15);
+    Sensitivity_File.open("sensitivity.csv", ios::out);
+    Sensitivity_File <<  "\"x_coord\",\"sigma_partial1\",\"Density*Enthalpy*Psi[nDim+1]\",\"U[0+1]*Psi[0+1]\",\"U[1+1]*Psi[1+1]\",\"vartheta\",\"normal_grad_v_ux[0]\",\"normal_grad_v_ux[1]\",\"y_coord\",\"sigma_partial\",\"vartheta_partial\",\"psi5_tau_partial\",\"psi5_p_div_vel\",\"psi5_tau_grad_vel\",\"source_v_1\",\"source_v_2\",\"Global_Index\"" << endl;
+    //    Coord[0] << Density*Psi[0] << ", " << Density*Enthalpy*Psi[nDim+1] << ", "  << U[0+1]*Psi[0+1] << ", " << U[1+1]*Psi[1+1] << ", "  <<vartheta << ", " << normal_grad_v_ux[0] << ", " << normal_grad_v_ux[1] << ", "<< y
+    // sigma_partial << ", " << vartheta_partial << ", " <<  psi5_tau_partial<< ", " <<  psi5_p_div_vel << ", " <<  psi5_tau_grad_vel  << ", " << iPoint
+  }
   
   /*--- Compute gradient of adjoint variables on the surface ---*/
   
@@ -5332,7 +5332,7 @@ void CAdjNSSolver::Viscous_Sensitivity(CGeometry *geometry, CSolver **solver_con
           
           /*--- Compute additional terms in the surface sensitivity for
            moving walls in a rotating frame or dynamic mesh problem. ---*/
-          
+          double dn_v_n;
           if (grid_movement) {
             
             Psi = node[iPoint]->GetSolution();
@@ -5395,12 +5395,14 @@ void CAdjNSSolver::Viscous_Sensitivity(CGeometry *geometry, CSolver **solver_con
             for (iDim = 0; iDim < nDim; iDim++) {
               vartheta += U[iDim+1]*Psi[iDim+1];
             }
-            vartheta_partial = 0.0;
-            for (iDim = 0; iDim < nDim; iDim++)
+            vartheta_partial = 0.0;  dn_v_n = 0.0;
+            for (iDim = 0; iDim < nDim; iDim++) {
               vartheta_partial += vartheta * normal_grad_v_ux[iDim] * UnitNormal[iDim];
+              dn_v_n += normal_grad_v_ux[iDim] * UnitNormal[iDim];
+            }
             
-//            double *Coord = geometry->node[iPoint]->GetCoord();
-//              Sensitivity_File << scientific << Coord[0] << ", " << sigma_partial << ", " << Density*Enthalpy*Psi[nDim+1] << ", "  << U[0+1]*Psi[0+1] << ", " << U[1+1]*Psi[1+1] << ", "  <<vartheta << ", " << normal_grad_v_ux[0] << ", " << normal_grad_v_ux[1] << ", "<< Coord[1];
+            double *Coord = geometry->node[iPoint]->GetCoord();
+              Sensitivity_File << scientific << Coord[0] << ", " << sigma_partial << ", " << Density*Enthalpy*Psi[nDim+1] << ", "  << U[0+1]*Psi[0+1] << ", " << U[1+1]*Psi[1+1] << ", "  <<vartheta << ", " << normal_grad_v_ux[0] << ", " << normal_grad_v_ux[1] << ", "<< Coord[1];
             
               /*--- Form sigma_partial = n_i ( \Sigma_Phi_{ij} + \Sigma_Psi5v_{ij} ) \partial_n (v - u_x)_j ---*/
               sigma_partial = 0.0;
@@ -5467,12 +5469,18 @@ void CAdjNSSolver::Viscous_Sensitivity(CGeometry *geometry, CSolver **solver_con
             
             }
             
-//            Sensitivity_File << scientific << ", "<< sigma_partial << ", " << vartheta_partial << ", " <<  psi5_tau_partial<< ", " <<  psi5_p_div_vel << ", " <<  psi5_tau_grad_vel  << ", " <<  source_v_1 << ", " <<  source_v_2  << ", " << iPoint << endl;
+            Sensitivity_File << scientific << ", "<< sigma_partial << ", " << vartheta_partial << ", " <<  psi5_tau_partial<< ", " <<  psi5_p_div_vel << ", " <<  psi5_tau_grad_vel  << ", " <<  dn_v_n << ", " <<  vartheta  << ", " << iPoint;
             
             /*--- For simplicity, store all additional terms within sigma_partial ---*/ //  + vartheta_partial
             sigma_partial = sigma_partial + psi5_tau_partial+ psi5_p_div_vel + psi5_tau_grad_vel + source_v_1 + source_v_2;
 
           }
+          
+          dn_v_n = 0.0;
+          for (iDim = 0; iDim < nDim; iDim++)
+            dn_v_n += normal_grad_vel[iDim] * UnitNormal[iDim];
+          
+          Sensitivity_File << scientific << ", "<< sigma_partial << ", " << dn_v_n << endl;
           
           /*--- Compute additional term in the surface sensitivity for free surface problem. ---*/
           
@@ -5495,7 +5503,7 @@ void CAdjNSSolver::Viscous_Sensitivity(CGeometry *geometry, CSolver **solver_con
     }
   }
   
-//  Sensitivity_File.close();
+  Sensitivity_File.close();
   
   
   /*--- Farfield Sensitivity (Mach, AoA, Press, Temp), only for compressible flows ---*/
