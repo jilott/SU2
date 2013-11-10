@@ -463,6 +463,11 @@ CSourcePieceWise_TransLM::CSourcePieceWise_TransLM(unsigned short val_nDim, unsi
 	/*-- Correlation constants --*/
 	flen_global  = 12.0;
 	alpha_global = 0.85;
+
+	/*-- Initialize member variables --*/
+	strain   = 0.0;
+	f_lambda = 0.0;
+
 }
 
 CSourcePieceWise_TransLM::~CSourcePieceWise_TransLM(void) { }
@@ -558,23 +563,26 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 
 	/*-- Initial bracket for lambda --*/
 	if (du_ds>=0) {
+		//cout << "Case A, du_ds>=0. " ;
 		lambda_a = 0.0;
 		lambda_b = 0.1;
 	} else {
+		//cout << "Case B, du_ds<0. " ;
 		lambda_a = -0.1;
 		lambda_b =  0.0;
 	}
 
-	if (abs(du_ds)<1e-11) {
+	if (abs(du_ds)<1e-12) {
 		lambda = 0.0;
 	} else {
 		f_a = corr_func(lambda_a);
 		f_b = corr_func(lambda_b);
 		if (f_a*f_b > 0) {
-			// cout << "ERROR: f_a and f_b have same sign!" << endl;
+			//cout << "Case I: f_a and f_b have same sign." << endl;
 			lambda = 0.1*copysign(1.0,du_ds);
 		} else {
 
+			//cout << "Case II: f_a and f_b have same sign." << endl;
 			/*-- Begin method of false position to solve for lambda --*/
 			while(1) {
 
@@ -583,20 +591,20 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 				f_c = corr_func(lambda_c);
 
 				/*-- Monitor convergence --*/
-				// cout << lambda_a << " " << lambda_c << " " << lambda_b << "\t" << f_a << " " << f_c << " " << f_b << endl;
+				//cout << "\t lambda: [" << lambda_a << ", " << lambda_c << ", " << lambda_b << "] \t f: [" << f_a << ", " << f_c << ", " << f_b << "]" << endl;
 
 				if (f_c==0.0) {
 					lambda = lambda_c;
-					// cout << "Exact solution found: lambda=" << lambda << endl;
+					//cout << "Exact solution found: lambda=" << lambda << endl;
 					break;
 				}
 				if (lambda_c-lambda_a <= bracket_tol) {
 					lambda = 0.5*(lambda_a+lambda_c);
-					// cout << "Bracket tolerance reached. lambda = " << lambda << endl;
+					//cout << "A-C Bracket tolerance reached. lambda = " << lambda << endl;
 					break;
 				} else if (lambda_b-lambda_c <= bracket_tol) {
 					lambda = 0.5*(lambda_b+lambda_c);
-					// cout << "Bracket tolerance reached. lambda = " << lambda << endl;
+					//cout << "C-B Bracket tolerance reached. lambda = " << lambda << endl;
 					break;
 				}
 
@@ -606,30 +614,34 @@ void CSourcePieceWise_TransLM::translm_helper(CConfig *config) {
 					f_b      = f_c;
 				} else {
 					lambda_a = lambda_c;
-					f_a      = lambda_a;
+					f_a      = f_c;
 				}
 			}
+			debug = true;
 		}
 	}
 
 
   /*-- Evaluate correlation with solved value of lambda --*/
-	if (lambda <= 0.0) f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5)); else
-		f_lambda = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
+	if (lambda <= 0.0) f_lambda = 1 - (-12.986*lambda - 123.66*pow(lambda,2) - 405.689*pow(lambda,3))*exp(-pow(tu/1.5,1.5));
+	else f_lambda = 1 + 0.275*(1-exp(-35.0*lambda))*exp(-tu/0.5);
 
 	if (tu <= 1.3)
 		re_theta_t = (1173.51 - 589.428*tu + 0.2196/pow(tu,2))*f_lambda;
 	else
 		re_theta_t = (331.5*pow(tu-0.5658,-0.671))*f_lambda;
 
+	// Check lambda, TODO: Remove this
+//	if (debug) {
+//		lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
+//		double check = abs(lambda-lambda_check);
+//		if (check>1e-8)
+//			cout << "WARNING: lambda_check does not match lambda. " << lambda << " " << lambda_check << endl;
+//	}
+
 	/*-- Restore tu to its regular value --*/
 	tu /= 100;
 
-  /*-- Check lambda TODO: Remove this --*/
-  //  lambda_check = pow(re_theta_t,2)*Laminar_Viscosity_i/(U_i[0]*pow(Velocity_Mag,2))*du_ds;
-  //  double check = abs(lambda-lambda_check);
-  //  if (check>1e-8)
-  //    cout << "WARNING: lambda_check does not match lambda" << endl;
 
 	/*-- Calculate blending function f_theta --*/
 	time_scale = 500.0*Laminar_Viscosity_i/(U_i[0]*Velocity_Mag*Velocity_Mag);
